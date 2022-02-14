@@ -1,11 +1,12 @@
 mod bus;
+mod clock;
 mod cpu;
 mod mem;
 mod opcodes;
 mod types;
 
 use bus::{Bus, Device};
-use cpu::CPU;
+use cpu::{print_state, CPU};
 use mem::Memory;
 use opcodes::*;
 
@@ -28,6 +29,12 @@ fn main() {
     let mut bus = Bus::new();
     bus.plug_in((0x0000, 0x00FF), mem).unwrap();
 
+    let mut real_tick: bool;
     let mut cpu = CPU::new();
-    cpu.run_for(&mut bus, 20);
+    for _ in clock::Oscillator::with_mhz(1) {
+        real_tick = cpu.tick(&mut bus);
+        if real_tick {
+            print_state(&cpu);
+        }
+    }
 }

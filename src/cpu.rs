@@ -121,34 +121,29 @@ impl CPU {
         self.set_zn();
     }
 
-    fn tick(&mut self, bus: &mut Bus) {
+    pub fn tick(&mut self, bus: &mut Bus) -> bool {
         if self.cycles == 0 {
             let opcode = self.fetch(bus);
             self.run_opcode(opcode, bus);
-            self.print_state();
-            return;
+            return true;
         }
 
-        self.cycles -= 1;
+        // Since we executed the opcode in one go,
+        // we just do nothing for the remaining cycles.
         self.tick_counter += 1;
+        self.cycles -= 1;
+        false
     }
+}
 
-    pub fn run_for(&mut self, bus: &mut Bus, mut cycles: u8) {
-        while cycles > 0 {
-            self.tick(bus);
-            cycles -= 1;
-        }
-    }
-
-    fn print_state(&self) {
-        println!("--- tick {} ---", self.tick_counter);
-        println!("FL: 0b{:08b}", self.flags);
-        println!("PC: 0x{:04X}", self.pc);
-        println!("SP: 0x{:02X}", self.sp);
-        println!("A:  0x{:02X}", self.a);
-        println!("X:  0x{:02X}", self.x);
-        println!("Y:  0x{:02X}", self.y);
-    }
+pub fn print_state(cpu: &CPU) {
+    println!("--- tick {} ---", cpu.tick_counter);
+    println!("FL: 0b{:08b}", cpu.flags);
+    println!("PC: 0x{:04X}", cpu.pc);
+    println!("SP: 0x{:02X}", cpu.sp);
+    println!("A:  0x{:02X}", cpu.a);
+    println!("X:  0x{:02X}", cpu.x);
+    println!("Y:  0x{:02X}", cpu.y);
 }
 
 #[cfg(test)]
