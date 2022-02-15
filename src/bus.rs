@@ -17,7 +17,7 @@ pub struct Bus {
 impl Bus {
     pub fn new() -> Bus {
         Bus {
-            devices: Vec::with_capacity(10),
+            devices: Vec::new(),
         }
     }
 
@@ -27,7 +27,7 @@ impl Bus {
         device: Rc<RefCell<dyn Memory>>,
     ) -> Result<(), String> {
         for existing_device in &self.devices {
-            if existing_device.range.0 >= range.1 || existing_device.range.1 <= range.0 {
+            if existing_device.range.0 >= range.1 || existing_device.range.1 >= range.0 {
                 return Err(format!(
                     "devices overlap: {:?} and {:?}",
                     existing_device.range, range
@@ -45,7 +45,7 @@ impl Memory for Bus {
         for mapped_device in &self.devices {
             if mapped_device.range.0 <= addr && addr <= mapped_device.range.1 {
                 let device = mapped_device.device.borrow();
-                return device.read(addr);
+                return device.read(addr - mapped_device.range.0);
             }
         }
         0
@@ -55,7 +55,7 @@ impl Memory for Bus {
         for mapped_device in &mut self.devices {
             if mapped_device.range.0 <= addr && addr <= mapped_device.range.1 {
                 let mut device = mapped_device.device.borrow_mut();
-                device.write(addr, data);
+                device.write(addr - mapped_device.range.0, data);
                 return;
             }
         }
@@ -89,7 +89,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read() {
+    fn read() {
         let mut bus = Bus::new();
         let device = Rc::new(RefCell::new(TestDevice {
             addr: 0x1234,
@@ -102,7 +102,20 @@ mod tests {
     }
 
     #[test]
-    fn test_write() {
+    fn read_offset() {
+        let mut bus = Bus::new();
+        let device = Rc::new(RefCell::new(TestDevice {
+            addr: 0x0000,
+            data: 0xAB,
+        }));
+
+        bus.plug_in((0x0001, 0xFFFF), device.clone()).unwrap();
+        let val = bus.read(0x0001);
+        assert_eq!(val, 0xAB)
+    }
+
+    #[test]
+    fn write() {
         let device = Rc::new(RefCell::new(TestDevice {
             addr: 0xAAAA,
             data: 0x00,
@@ -115,5 +128,45 @@ mod tests {
         let device = device.borrow();
         assert_eq!(device.addr, 0xAAAA);
         assert_eq!(device.data, 0xFF);
+    }
+
+    #[test]
+    fn write_offset() {
+        let device = Rc::new(RefCell::new(TestDevice {
+            addr: 0x0000,
+            data: 0x00,
+        }));
+
+        let mut bus = Bus::new();
+        bus.plug_in((0x0001, 0xFFFF), device.clone()).unwrap();
+        bus.write(0x0001, 0xFF);
+
+        let device = device.borrow();
+        assert_eq!(device.addr, 0x0000);
+        assert_eq!(device.data, 0xFF);
+    }
+
+    #[test]
+    fn conflict() {
+        let device = Rc::new(RefCell::new(TestDevice {
+            addr: 0xAAAA,
+            data: 0x00,
+        }));
+
+        let mut bus = Bus::new();
+        bus.plug_in((0x0000, 0x1000), device.clone()).unwrap();
+        bus.plug_in((0x0900, 0x2000), device.clone()).unwrap_err();
+    }
+
+    #[test]
+    fn no_conflict() {
+        let device = Rc::new(RefCell::new(TestDevice {
+            addr: 0xAAAA,
+            data: 0x00,
+        }));
+
+        let mut bus = Bus::new();
+        bus.plug_in((0x0000, 0x1000), device.clone()).unwrap();
+        bus.plug_in((0x1001, 0x2000), device.clone()).unwrap();
     }
 }
