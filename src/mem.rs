@@ -1,24 +1,30 @@
-use crate::bus::Device;
 use crate::types::*;
 
-const MEM_SIZE: usize = 64 * 1024;
+const RAM_SIZE: usize = 64 * 1024;
 
-pub struct Memory {
-    ram: [Byte; MEM_SIZE],
+pub trait Memory {
+    fn read(&self, addr: Word) -> Byte;
+    fn write(&mut self, addr: Word, data: Byte);
 }
 
-impl Memory {
-    pub fn new() -> Memory {
-        Memory { ram: [0; MEM_SIZE] }
+pub struct Ram {
+    data: [Byte; RAM_SIZE],
+}
+
+impl Ram {
+    pub fn new() -> Ram {
+        Ram {
+            data: [0; RAM_SIZE],
+        }
     }
 }
 
-impl Device for Memory {
+impl Memory for Ram {
     fn read(&self, addr: Word) -> Byte {
-        self.ram[addr as usize]
+        self.data[addr as usize]
     }
 
     fn write(&mut self, addr: Word, data: Byte) {
-        self.ram[addr as usize] = data;
+        self.data[addr as usize] = data;
     }
 }

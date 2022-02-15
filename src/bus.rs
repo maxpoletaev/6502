@@ -1,76 +1,119 @@
 use super::types::*;
-use std::collections::HashMap;
+use crate::mem::Memory;
+use std::cell::RefCell;
+use std::rc::Rc;
 
-pub trait Device {
-    fn read(&self, addr: Word) -> Byte;
-    fn write(&mut self, addr: Word, data: Byte);
+type MemRange = (Word, Word);
+
+struct MappedMemory {
+    range: MemRange,
+    device: Rc<RefCell<dyn Memory>>,
 }
 
-type Key = (Word, Word);
-
 pub struct Bus {
-    addr: Word,
-    devices: HashMap<Key, Box<dyn Device>>,
+    devices: Vec<MappedMemory>,
 }
 
 impl Bus {
     pub fn new() -> Bus {
         Bus {
-            addr: 0,
-            devices: HashMap::new(),
+            devices: Vec::with_capacity(10),
         }
     }
 
-    pub fn set_addr(&mut self, addr: Word) {
-        self.addr = addr;
-    }
-
-    pub fn read(&self) -> Byte {
-        match self.find(self.addr) {
-            Some(key) => {
-                let device = self.devices.get(&key).unwrap();
-                device.read(self.addr - key.0)
-            }
-            None => 0,
-        }
-    }
-
-    pub fn read_addr(&mut self, addr: Word) -> Byte {
-        self.set_addr(addr);
-        self.read()
-    }
-
-    pub fn write(&mut self, data: Byte) {
-        match self.find(self.addr) {
-            Some(key) => {
-                let device = self.devices.get_mut(&key).unwrap();
-                device.write(self.addr - key.0, data);
-            }
-            None => (),
-        }
-    }
-
-    pub fn write_addr(&mut self, addr: Word, data: Byte) {
-        self.set_addr(addr);
-        self.write(data);
-    }
-
-    pub fn plug_in(&mut self, key: Key, device: Box<dyn Device>) -> Result<(), String> {
-        for r in self.devices.keys() {
-            if r.0 >= key.1 || r.1 <= key.0 {
-                return Err(format!("devices overlap: {:?} and {:?}", r, key));
+    pub fn plug_in(
+        &mut self,
+        range: MemRange,
+        device: Rc<RefCell<dyn Memory>>,
+    ) -> Result<(), String> {
+        for existing_device in &self.devices {
+            if existing_device.range.0 >= range.1 || existing_device.range.1 <= range.0 {
+                return Err(format!(
+                    "devices overlap: {:?} and {:?}",
+                    existing_device.range, range
+                ));
             }
         }
-        self.devices.insert(key, device);
+
+        self.devices.push(MappedMemory { range, device });
         Ok(())
     }
+}
 
-    pub fn find(&self, addr: Word) -> Option<Key> {
-        for key in self.devices.keys() {
-            if addr >= key.0 && addr <= key.1 {
-                return Some(key.clone());
+impl Memory for Bus {
+    fn read(&self, addr: Word) -> Byte {
+        for mapped_device in &self.devices {
+            if mapped_device.range.0 <= addr && addr <= mapped_device.range.1 {
+                let device = mapped_device.device.borrow();
+                return device.read(addr);
             }
         }
-        None
+        0
+    }
+
+    fn write(&mut self, addr: Word, data: Byte) {
+        for mapped_device in &mut self.devices {
+            if mapped_device.range.0 <= addr && addr <= mapped_device.range.1 {
+                let mut device = mapped_device.device.borrow_mut();
+                device.write(addr, data);
+                return;
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::rc::Rc;
+
+    struct TestDevice {
+        addr: Word,
+        data: Byte,
+    }
+
+    impl Memory for TestDevice {
+        fn read(&self, addr: Word) -> Byte {
+            if addr == self.addr {
+                self.data
+            } else {
+                0
+            }
+        }
+
+        fn write(&mut self, addr: Word, data: Byte) {
+            if addr == self.addr {
+                self.data = data;
+            }
+        }
+    }
+
+    #[test]
+    fn test_read() {
+        let mut bus = Bus::new();
+        let device = Rc::new(RefCell::new(TestDevice {
+            addr: 0x1234,
+            data: 0xAB,
+        }));
+
+        bus.plug_in((0x0000, 0xFFFF), device.clone()).unwrap();
+        let val = bus.read(0x1234);
+        assert_eq!(val, 0xAB)
+    }
+
+    #[test]
+    fn test_write() {
+        let device = Rc::new(RefCell::new(TestDevice {
+            addr: 0xAAAA,
+            data: 0x00,
+        }));
+
+        let mut bus = Bus::new();
+        bus.plug_in((0x0000, 0xFFFF), device.clone()).unwrap();
+        bus.write(0xAAAA, 0xFF);
+
+        let device = device.borrow();
+        assert_eq!(device.addr, 0xAAAA);
+        assert_eq!(device.data, 0xFF);
     }
 }

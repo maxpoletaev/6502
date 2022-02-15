@@ -1,6 +1,6 @@
+use crate::mem::Memory;
 use crate::opcodes::*;
 use crate::types::*;
-use crate::Bus;
 
 const FLAG_CARRY: Flag = 1 << 0;
 const FLAG_ZERO: Flag = 1 << 1;
@@ -19,8 +19,7 @@ pub struct CPU {
     x: Byte, // X register
     y: Byte, // Y register
 
-    cycles: u8,        // Remaining cycles for the current instruction
-    tick_counter: u32, // Absolute cycle number (debug)
+    cycles: u8, // Cycles remaining
 }
 
 impl CPU {
@@ -33,7 +32,6 @@ impl CPU {
             x: 0,
             y: 0,
             cycles: 0,
-            tick_counter: 0,
         }
     }
 
@@ -49,23 +47,23 @@ impl CPU {
         (self.flags & flag) > 0
     }
 
-    fn fetch(&mut self, bus: &mut Bus) -> Byte {
-        let data = bus.read_addr(self.pc);
+    fn fetch(&mut self, bus: &mut dyn Memory) -> Byte {
+        let data = bus.read(self.pc);
         self.pc += 1;
         data
     }
 
-    fn fetch_word(&mut self, bus: &mut Bus) -> Word {
-        let hi = bus.read_addr(self.pc) as Word;
+    fn fetch_word(&mut self, bus: &mut dyn Memory) -> Word {
+        let hi = bus.read(self.pc) as Word;
         self.pc += 1;
 
-        let lo = bus.read_addr(self.pc) as Word;
+        let lo = bus.read(self.pc) as Word;
         self.pc += 1;
 
         (hi << 8) | lo
     }
 
-    fn run_opcode(&mut self, opcode: Byte, bus: &mut Bus) {
+    fn run_opcode(&mut self, opcode: Byte, bus: &mut dyn Memory) -> u8 {
         match opcode {
             OP_LDA_IMM => self.lda_imm(bus),
             OP_LDA_ZP => self.lda_zp(bus),
@@ -76,13 +74,8 @@ impl CPU {
         }
     }
 
-    fn addr_zp(&mut self, bus: &mut Bus) -> Word {
-        let zp_addr = self.fetch(bus);
-        zp_addr as Word
-    }
-
-    fn nop(&mut self) {
-        self.cycles = 2;
+    fn nop(&mut self) -> u8 {
+        2
     }
 
     fn set_zn(&mut self) {
@@ -90,54 +83,53 @@ impl CPU {
         self.set_flag(FLAG_NEGATIVE, self.a & (1 << 7) > 0); // set if bit 7 of A is set
     }
 
-    fn lda_imm(&mut self, bus: &mut Bus) {
-        self.cycles = 2;
+    fn lda_imm(&mut self, bus: &mut dyn Memory) -> u8 {
         self.a = self.fetch(bus);
         self.set_zn();
+        2
     }
 
-    fn lda_zp(&mut self, bus: &mut Bus) {
-        self.cycles = 3;
-        let addr = self.addr_zp(bus);
-        self.a = bus.read_addr(addr);
+    fn lda_zp(&mut self, bus: &mut dyn Memory) -> u8 {
+        let zp_addr = self.fetch(bus) as Word;
+        self.a = bus.read(zp_addr);
         self.pc += 1;
         self.set_zn();
+        3
     }
 
-    fn lda_zpx(&mut self, bus: &mut Bus) {
-        self.cycles = 4;
+    fn lda_zpx(&mut self, bus: &mut dyn Memory) -> u8 {
         let addr = self.fetch(bus) + self.x;
-        self.a = bus.read_addr(addr as Word);
+        self.a = bus.read(addr as Word);
         self.pc += 1;
-        self.set_zn();
+        4
     }
 
-    fn inc_abs(&mut self, bus: &mut Bus) {
-        self.cycles = 6;
+    fn inc_abs(&mut self, bus: &mut dyn Memory) -> u8 {
         let addr = self.fetch_word(bus);
-        let val = bus.read_addr(addr);
+        let val = bus.read(addr);
         let (new_val, _) = val.overflowing_add(1);
-        bus.write(new_val);
+        bus.write(addr, new_val);
         self.set_zn();
+        6
     }
 
-    pub fn tick(&mut self, bus: &mut Bus) -> bool {
-        if self.cycles == 0 {
-            let opcode = self.fetch(bus);
-            self.run_opcode(opcode, bus);
-            return true;
+    pub fn tick(&mut self, bus: &mut dyn Memory) -> bool {
+        if self.cycles > 0 {
+            // Since we executed the opcode in one go,
+            // we just do nothing for the remaining cycles.
+            self.cycles -= 1;
+            return false;
         }
 
-        // Since we executed the opcode in one go,
-        // we just do nothing for the remaining cycles.
-        self.tick_counter += 1;
+        let opcode = self.fetch(bus);
+        self.cycles = self.run_opcode(opcode, bus);
         self.cycles -= 1;
-        false
+        true
     }
 }
 
 pub fn print_state(cpu: &CPU) {
-    println!("--- tick {} ---", cpu.tick_counter);
+    println!("--- tick ---");
     println!("FL: 0b{:08b}", cpu.flags);
     println!("PC: 0x{:04X}", cpu.pc);
     println!("SP: 0x{:02X}", cpu.sp);
@@ -149,104 +141,79 @@ pub fn print_state(cpu: &CPU) {
 #[cfg(test)]
 mod test_cpu {
     use super::*;
-    use crate::mem::Memory;
+    use crate::mem::{Memory, Ram};
 
-    fn setup_cpu() -> CPU {
-        CPU::new()
+    fn setup() -> (CPU, Ram) {
+        let mem = Ram::new();
+        let cpu = CPU::new();
+        (cpu, mem)
     }
 
-    fn setup_bus() -> Box<Bus> {
-        let mut bus = Box::new(Bus::new());
-        let mem = Box::new(Memory::new());
-        bus.plug_in((0x0000, 0xFFFF), mem).unwrap();
-        bus
+    fn run_loop(n: u32, cpu: &mut CPU, mem: &mut Ram) {
+        for _ in 0..n {
+            cpu.tick(mem);
+        }
     }
 
     #[test]
     fn lda_imm() {
-        let mut bus = setup_bus();
+        let (mut cpu, mut bus) = setup();
 
-        // LDA $AA
-        bus.write_addr(0x0000, OP_LDA_IMM);
-        bus.write_addr(0x0001, 0xAA);
+        // LDA $0A
+        bus.write(0x0000, OP_LDA_IMM);
+        bus.write(0x0001, 0x0A);
 
-        let mut cpu = setup_cpu();
-        cpu.run_for(&mut bus, 2);
+        run_loop(2, &mut cpu, &mut bus);
 
-        assert_eq!(cpu.a, 0xAA);
-    }
-
-    #[test]
-    fn lda_imm_zero() {
-        let mut mem = setup_bus();
-
-        // LDA 00
-        mem.write_addr(0x00, OP_LDA_IMM);
-        mem.write_addr(0x01, 0x00);
-
-        let mut cpu = setup_cpu();
-        cpu.run_for(&mut mem, 3);
-
-        assert_eq!(cpu.a, 0x00);
-        assert!(cpu.read_flag(FLAG_ZERO));
+        assert_eq!(cpu.a, 0x0A);
+        assert!(!cpu.read_flag(FLAG_ZERO));
         assert!(!cpu.read_flag(FLAG_NEGATIVE));
     }
 
-    // #[test]
-    // fn lda_zp() {
-    //     let mut mem = Memory::new();
+    #[test]
+    fn lda_zp() {
+        let (mut cpu, mut bus) = setup();
 
-    //     mem.write(0x0010, 0xAA);
-    //     mem.write(0x00, OP_LDA_ZP);
-    //     mem.write(0x01, 0x0010);
+        bus.write(0x0010, 0xAA);
+        bus.write(0x0000, OP_LDA_ZP);
+        bus.write(0x0001, 0x0010);
 
-    //     let mut bus = Bus::new();
-    //     bus.plug_in((0x00, 0xFF), Box::new(mem)).unwrap();
-    //     let mut cpu = CPU::new(&mut bus);
-    //     cpu.tick();
+        run_loop(3, &mut cpu, &mut bus);
 
-    //     assert_eq!(cpu.a, 0xAA);
-    //     assert!(!cpu.read_flag(FLAG_ZERO));
-    //     assert!(cpu.read_flag(FLAG_NEGATIVE));
-    // }
+        assert_eq!(cpu.a, 0xAA);
+        assert!(!cpu.read_flag(FLAG_ZERO));
+        assert!(cpu.read_flag(FLAG_NEGATIVE));
+    }
 
-    // #[test]
-    // fn inc_abs() {
-    //     let mut mem = Box::new(Memory::new());
+    #[test]
+    fn inc_abs() {
+        let (mut cpu, mut mem) = setup();
 
-    //     // INC #$AAAA
-    //     mem.write(0xAAAA, 0x00);
-    //     mem.write(0x0000, OP_INC_ABS);
-    //     mem.write(0x0001, 0xAA);
-    //     mem.write(0x0002, 0xAA);
+        // INC #$AAAA
+        mem.write(0xAAAA, 0x00);
+        mem.write(0x0000, OP_INC_ABS);
+        mem.write(0x0001, 0xAA);
+        mem.write(0x0002, 0xAA);
 
-    //     let mut bus = Bus::new();
-    //     bus.plug_in((0x0000, 0xFFFF), mem).unwrap();
-    //     let mut cpu = CPU::new(&mut bus);
-    //     cpu.run_for(6);
+        run_loop(5, &mut cpu, &mut mem);
 
-    //     bus.set_addr(0xAAAA);
-    //     let value = bus.read();
-    //     assert_eq!(0x01, value);
-    // }
+        let value = mem.read(0xAAAA);
+        assert_eq!(0x01, value);
+    }
 
-    // #[test]
-    // fn inc_abs_overflow() {
-    //     let mut mem = Box::new(Memory::new());
+    #[test]
+    fn inc_abs_overflow() {
+        let (mut cpu, mut mem) = setup();
 
-    //     // INC #$AAAA
-    //     mem.write(0xAAAA, 0xFF);
-    //     mem.write(0x0000, OP_INC_ABS);
-    //     mem.write(0x0001, 0xAA);
-    //     mem.write(0x0002, 0xAA);
+        // INC #$AAAA
+        mem.write(0xAAAA, 0xFF);
+        mem.write(0x0000, OP_INC_ABS);
+        mem.write(0x0001, 0xAA);
+        mem.write(0x0002, 0xAA);
 
-    //     let mut bus = Bus::new();
-    //     bus.plug_in((0x0000, 0xFFFF), mem).unwrap();
-    //     let mut cpu = CPU::new(&mut bus);
-    //     cpu.run_for(6);
+        run_loop(6, &mut cpu, &mut mem);
 
-    //     bus.set_addr(0xAAAA);
-    //     let value = bus.read();
-    //     assert_eq!(0x00, value);
-    // }
+        let value = mem.read(0xAAAA);
+        assert_eq!(0x00, value);
+    }
 }
