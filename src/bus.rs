@@ -21,13 +21,17 @@ impl Bus {
         }
     }
 
+    fn ranges_overlap(&self, a: MemRange, b: MemRange) -> bool {
+        a.0 <= b.1 && b.0 <= a.1
+    }
+
     pub fn plug_in(
         &mut self,
         range: MemRange,
         device: Rc<RefCell<dyn Memory>>,
     ) -> Result<(), String> {
         for existing_device in &self.devices {
-            if existing_device.range.0 >= range.1 || existing_device.range.1 >= range.0 {
+            if self.ranges_overlap(range, existing_device.range) {
                 return Err(format!(
                     "devices overlap: {:?} and {:?}",
                     existing_device.range, range
@@ -63,7 +67,7 @@ impl Memory for Bus {
 }
 
 #[cfg(test)]
-mod tests {
+mod bus_test {
     use super::*;
     use std::rc::Rc;
 

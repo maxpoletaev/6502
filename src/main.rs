@@ -32,8 +32,8 @@ fn main() {
     mem.write(0x0006, 0x11);
 
     let mut bus = Bus::new();
-    let mem = Rc::new(RefCell::new(mem));
-    bus.plug_in((0x0000, 0x00FF), mem).unwrap();
+    let mem: Rc<RefCell<dyn Memory>> = Rc::new(RefCell::new(mem));
+    bus.plug_in((0x0000, 0x00FF), Rc::clone(&mem)).unwrap();
 
     let mut real_tick: bool;
     let mut cpu = CPU::new();
