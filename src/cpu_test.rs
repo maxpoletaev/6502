@@ -260,4 +260,22 @@ mod jmp_test {
         assert_eq!(5, cpu.cycles);
         assert_eq!(0xABCD, cpu.pc);
     }
+
+    #[test]
+    fn jmp_ind_bound() {
+        let (mut cpu, mut mem) = setup();
+
+        // target value to be loaded into PC
+        mem.write(0xA0FF, 0xCD);
+        mem.write(0xA000, 0xAB);
+
+        // JMP ($A0FF)
+        mem.write(0xFF00, OP_JMP_IND);
+        mem.write(0xFF01, 0xFF);
+        mem.write(0xFF02, 0xA0);
+
+        cpu.tick(&mut mem);
+        assert_eq!(5, cpu.cycles);
+        assert_eq!(0xABCD, cpu.pc);
+    }
 }

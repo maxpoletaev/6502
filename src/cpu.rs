@@ -197,7 +197,15 @@ impl CPU {
 
                 let addr = {
                     let lo = mem.read(ptr_addr) as Word;
-                    let hi = mem.read(ptr_addr + 1) as Word;
+                    let mut hi = mem.read(ptr_addr + 1) as Word;
+
+                    // An original 6502 has does not correctly fetch the target address if the indirect vector falls on
+                    // a page boundary (e.g. $xxFF where xx is any value from $00 to $FF). In this case fetches the LSB
+                    // from $xxFF as expected but takes the MSB from $xx00.
+                    if ptr_addr & 0x00FF == 0x00FF {
+                        hi = mem.read(ptr_addr & 0xFF00) as Word;
+                    }
+
                     (hi << 8) | lo
                 };
 
