@@ -7,8 +7,31 @@ const FLAG_ZERO: Flag = 1 << 1;
 const FLAG_NO_INTERRUPT: Flag = 1 << 2;
 const FLAG_DECIMAL: Flag = 1 << 3;
 const FLAG_BREAK: Flag = 1 << 4;
+const FLAG_UNUSED: Flag = 1 << 5;
 const FLAG_OVERFLOW: Flag = 1 << 6;
 const FLAG_NEGATIVE: Flag = 1 << 7;
+
+#[derive(Debug)]
+enum AddrMode {
+    Imp,
+    Imm,
+    Zp,
+    ZpX,
+    Abs,
+    AbsX,
+    AbsY,
+    Ind,
+    IndX,
+    IndY,
+    Rel,
+}
+
+#[derive(Debug)]
+struct Fetched {
+    addr: Word,
+    data: Byte,
+    page_cross: bool,
+}
 
 pub struct CPU {
     flags: Byte, // Status flags
@@ -47,20 +70,6 @@ impl CPU {
         (self.flags & flag) > 0
     }
 
-    fn fetch(&mut self, mem: &mut dyn Memory) -> Byte {
-        let data = mem.read(self.pc);
-        self.pc += 1;
-        data
-    }
-
-    fn fetch_word(&mut self, mem: &mut dyn Memory) -> Word {
-        let hi = mem.read(self.pc) as Word;
-        self.pc += 1;
-        let lo = mem.read(self.pc) as Word;
-        self.pc += 1;
-        (hi << 8) | lo
-    }
-
     fn run_opcode(&mut self, opcode: Byte, mem: &mut dyn Memory) -> u8 {
         match opcode {
             OP_LDA_IMM => self.lda_imm(mem),
@@ -81,101 +90,181 @@ impl CPU {
         2
     }
 
-    fn set_zn(&mut self) {
-        self.set_flag(FLAG_ZERO, self.a == 0x00);
-        self.set_flag(FLAG_NEGATIVE, self.a & (1 << 7) > 0); // set if bit 7 of A is set
+    fn set_zn(&mut self, data: Byte) {
+        self.set_flag(FLAG_ZERO, data == 0x00);
+        self.set_flag(FLAG_NEGATIVE, data & (1 << 7) > 0); // set if bit 7 of A is set
+    }
+
+    fn fetch(&mut self, mem: &mut dyn Memory, mode: AddrMode) -> Fetched {
+        match mode {
+            AddrMode::Imm => {
+                let addr = self.pc;
+                let data = mem.read(addr);
+                self.pc += 1;
+
+                Fetched {
+                    addr,
+                    data,
+                    page_cross: false,
+                }
+            }
+            AddrMode::Zp => {
+                let addr = mem.read(self.pc) as Word;
+                self.pc += 1;
+
+                let data = mem.read(addr);
+                Fetched {
+                    addr,
+                    data,
+                    page_cross: false,
+                }
+            }
+            AddrMode::ZpX => {
+                let mut addr = mem.read(self.pc);
+                self.pc += 1;
+
+                addr = addr.overflowing_add(self.x).0;
+                let data = mem.read(addr as Word);
+
+                Fetched {
+                    addr: (addr as Word),
+                    data: data,
+                    page_cross: false,
+                }
+            }
+            AddrMode::Abs => {
+                let hi = mem.read(self.pc) as Word;
+                self.pc += 1;
+                let lo = mem.read(self.pc) as Word;
+                self.pc += 1;
+
+                let addr = (hi << 8) | lo;
+                let data = mem.read(addr);
+
+                Fetched {
+                    addr,
+                    data,
+                    page_cross: false,
+                }
+            }
+            AddrMode::IndX => {
+                let ptr_addr = {
+                    let mut addr = mem.read(self.pc);
+                    self.pc += 1;
+                    addr = addr.overflowing_add(self.x).0;
+                    addr as Word
+                };
+
+                let addr = {
+                    let hi = mem.read(ptr_addr) as Word;
+                    let lo = mem.read(ptr_addr + 1) as Word;
+                    (hi << 8) | lo
+                };
+
+                let data = mem.read(addr);
+                Fetched {
+                    addr,
+                    data,
+                    page_cross: false,
+                }
+            }
+            AddrMode::IndY => {
+                let ptr_addr = mem.read(self.pc) as Word;
+                self.pc += 1;
+
+                let mut addr = {
+                    let hi = mem.read(ptr_addr) as Word;
+                    let lo = mem.read(ptr_addr.overflowing_add(1).0) as Word;
+                    (hi << 8) | lo
+                };
+
+                let page = addr & 0xFF00;
+                addr = addr.overflowing_add(self.y as Word).0;
+
+                let mut page_cross = false;
+                if addr & 0xFF00 != page {
+                    page_cross = true;
+                }
+
+                let data = mem.read(addr);
+                Fetched {
+                    addr,
+                    data,
+                    page_cross,
+                }
+            }
+            _ => panic!("unsupported addressing mode: {:?}", mode),
+        }
     }
 
     fn lda_imm(&mut self, mem: &mut dyn Memory) -> u8 {
-        self.a = self.fetch(mem);
-        self.set_zn();
+        let f = self.fetch(mem, AddrMode::Imm);
+        self.a = f.data;
+        self.set_zn(self.a);
         2
     }
 
     fn lda_zp(&mut self, mem: &mut dyn Memory) -> u8 {
-        let zp_addr = self.fetch(mem) as Word;
-        self.a = mem.read(zp_addr);
-        self.set_zn();
+        let f = self.fetch(mem, AddrMode::Zp);
+        self.a = f.data;
+        self.set_zn(self.a);
         3
     }
 
     fn lda_zpx(&mut self, mem: &mut dyn Memory) -> u8 {
-        let addr = self.fetch(mem).overflowing_add(self.x).0;
-        self.a = mem.read(addr as Word);
-        self.set_zn();
+        let f = self.fetch(mem, AddrMode::ZpX);
+        self.a = f.data;
+        self.set_zn(self.a);
         4
     }
 
     fn lda_abs(&mut self, mem: &mut dyn Memory) -> u8 {
-        let addr = self.fetch_word(mem);
-        self.a = mem.read(addr);
-        self.set_zn();
+        let f = self.fetch(mem, AddrMode::Abs);
+        self.a = f.data;
+        self.set_zn(self.a);
         4
     }
 
     fn lda_idx(&mut self, mem: &mut dyn Memory) -> u8 {
-        let ptr_addr = {
-            let mut addr = self.fetch(mem);
-            addr = addr.overflowing_add(self.x).0;
-            addr as Word
-        };
-
-        let val_addr = {
-            let hi = mem.read(ptr_addr) as Word;
-            let lo = mem.read(ptr_addr + 1) as Word;
-            (hi << 8) | lo
-        };
-
-        self.a = mem.read(val_addr);
-        self.set_zn();
-
+        let f = self.fetch(mem, AddrMode::IndX);
+        self.a = f.data;
+        self.set_zn(self.a);
         6
     }
 
     fn lda_idy(&mut self, mem: &mut dyn Memory) -> u8 {
-        let ptr_addr = self.fetch(mem) as Word;
-
-        let mut val_addr = {
-            let hi = mem.read(ptr_addr) as Word;
-            let lo = mem.read(ptr_addr.overflowing_add(1).0) as Word;
-            (hi << 8) | lo
-        };
+        let f = self.fetch(mem, AddrMode::IndY);
+        self.a = f.data;
 
         let mut cycles = 5;
-        let page = val_addr & 0xFF00;
-        val_addr = val_addr.overflowing_add(self.y as Word).0;
-
-        if val_addr & 0xFF00 != page {
-            // one extra cycle on page cross
+        if f.page_cross {
             cycles += 1;
         }
 
-        self.a = mem.read(val_addr);
-        self.set_zn();
-
+        self.set_zn(self.a);
         cycles
     }
 
     fn inc_abs(&mut self, mem: &mut dyn Memory) -> u8 {
-        let addr = self.fetch_word(mem);
-        let mut val = mem.read(addr);
-        val = val.overflowing_add(1).0;
-        mem.write(addr, val);
-        self.set_zn();
-
+        let f = self.fetch(mem, AddrMode::Abs);
+        let data = f.data.overflowing_add(1).0;
+        mem.write(f.addr, data);
+        self.set_zn(data);
         6
     }
 
     pub fn tick(&mut self, mem: &mut dyn Memory) -> bool {
         if self.cycles > 0 {
-            // Since we executed the opcode in one go,
-            // we just do nothing for the remaining cycles.
+            // Since we executed the opcode in one go, we just do nothing for the remaining cycles.
             self.cycles -= 1;
             return false;
         }
 
-        let opcode = self.fetch(mem);
+        let opcode = mem.read(self.pc);
+        self.pc += 1;
+
         self.cycles = self.run_opcode(opcode, mem);
+        self.set_flag(FLAG_UNUSED, true);
         self.cycles -= 1;
         true
     }
