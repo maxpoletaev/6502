@@ -9,12 +9,6 @@ fn setup() -> (CPU, Ram) {
     (cpu, mem)
 }
 
-fn run_loop(n: u32, cpu: &mut CPU, mem: &mut Ram) {
-    for _ in 0..n {
-        cpu.tick(mem);
-    }
-}
-
 #[test]
 fn lda_imm() {
     let (mut cpu, mut mem) = setup();
@@ -52,15 +46,17 @@ fn lda_zp() {
 fn lda_zpx() {
     let (mut cpu, mut mem) = setup();
 
-    cpu.x = 0x01;
+    // value to be loaded
     mem.write(0x0011, 0xAA);
 
     // LDA $10,X
     mem.write(0xFF00, OP_LDA_ZPX);
     mem.write(0xFF01, 0x10);
+    cpu.x = 0x01;
 
-    run_loop(4, &mut cpu, &mut mem);
-    assert_eq!(cpu.a, 0xAA);
+    cpu.tick(&mut mem);
+    assert_eq!(4, cpu.cycles);
+    assert_eq!(0xAA, cpu.a);
     assert!(!cpu.read_flag(FLAG_ZERO));
     assert!(cpu.read_flag(FLAG_NEGATIVE));
 }
@@ -69,8 +65,8 @@ fn lda_zpx() {
 fn lda_abx() {
     let (mut cpu, mut mem) = setup();
 
-    // data to be loaded
-    mem.write(0xAAA9, 0x11);
+    // value to be loaded
+    mem.write(0xAAAA, 0x11);
 
     // LDA $AAA9
     mem.write(0xFF00, OP_LDA_ABX);
@@ -88,7 +84,7 @@ fn lda_aby() {
     let (mut cpu, mut mem) = setup();
 
     // data to be loaded
-    mem.write(0xAAA9, 0x11);
+    mem.write(0xAAAA, 0x11);
 
     // LDA $AAA9
     mem.write(0xFF00, OP_LDA_ABY);
@@ -114,8 +110,9 @@ fn lda_idx() {
     mem.write(0xFF00, OP_LDA_IDX);
     mem.write(0xFF01, 0xA0);
 
-    run_loop(6, &mut cpu, &mut mem);
-    assert_eq!(cpu.a, 0x11);
+    cpu.tick(&mut mem);
+    assert_eq!(6, cpu.cycles);
+    assert_eq!(0x11, cpu.a);
 }
 
 #[test]
@@ -131,8 +128,9 @@ fn lda_idy() {
     mem.write(0xFF00, OP_LDA_IDY);
     mem.write(0xFF01, 0xA0);
 
-    run_loop(6, &mut cpu, &mut mem);
-    assert_eq!(cpu.a, 0x11);
+    cpu.tick(&mut mem);
+    assert_eq!(6, cpu.cycles);
+    assert_eq!(0x11, cpu.a);
 }
 
 #[test]
@@ -146,8 +144,42 @@ fn lda_abs() {
     mem.write(0xFF01, 0x33);
     mem.write(0xFF02, 0x30);
 
-    run_loop(4, &mut cpu, &mut mem);
-    assert_eq!(cpu.a, 0x11);
+    cpu.tick(&mut mem);
+    assert_eq!(cpu.cycles, 4);
+    assert_eq!(0x11, cpu.a);
+}
+
+#[test]
+fn inc_zp() {
+    let (mut cpu, mut mem) = setup();
+
+    // value to be incremented
+    mem.write(0x00AA, 0x01);
+
+    // INC $AA
+    mem.write(0xFF00, OP_INC_ZP);
+    mem.write(0xFF01, 0xAA);
+
+    cpu.tick(&mut mem);
+    assert_eq!(5, cpu.cycles);
+    assert_eq!(0x02, mem.read(0x00AA));
+}
+
+#[test]
+fn inc_zpx() {
+    let (mut cpu, mut mem) = setup();
+
+    // value to be incremented
+    mem.write(0x00AA, 0x01);
+
+    // INC $AA
+    mem.write(0xFF00, OP_INC_ZPX);
+    mem.write(0xFF01, 0xA9);
+    cpu.x = 0x01;
+
+    cpu.tick(&mut mem);
+    assert_eq!(6, cpu.cycles);
+    assert_eq!(0x02, mem.read(0x00AA));
 }
 
 #[test]
@@ -164,5 +196,23 @@ fn inc_abs() {
 
     cpu.tick(&mut mem);
     assert_eq!(6, cpu.cycles);
+    assert_eq!(0x02, mem.read(0xAABB));
+}
+
+#[test]
+fn inc_abx() {
+    let (mut cpu, mut mem) = setup();
+
+    // value to be incremented
+    mem.write(0xAABB, 0x01);
+
+    // INC $AAAA
+    mem.write(0xFF00, OP_INC_ABX);
+    mem.write(0xFF01, 0xBA);
+    mem.write(0xFF02, 0xAA);
+    cpu.x = 0x01;
+
+    cpu.tick(&mut mem);
+    assert_eq!(7, cpu.cycles);
     assert_eq!(0x02, mem.read(0xAABB));
 }

@@ -80,6 +80,11 @@ impl CPU {
             OP_LDA_ABY => self.lda(mem, AddrMode::AbsY, 4),
             OP_LDA_IDX => self.lda(mem, AddrMode::IndX, 6),
             OP_LDA_IDY => self.lda(mem, AddrMode::IndY, 5),
+
+            OP_INC_ZP => self.inc(mem, AddrMode::Zp, 5),
+            OP_INC_ZPX => self.inc(mem, AddrMode::ZpX, 6),
+            OP_INC_ABS => self.inc(mem, AddrMode::Abs, 6),
+            OP_INC_ABX => self.inc(mem, AddrMode::AbsX, 7),
             OP_NOP => self.nop(),
 
             _ => panic!("unknown opcode: {:02X}", opcode),
@@ -156,7 +161,7 @@ impl CPU {
                 let addr = (hi << 8) | lo;
                 let addr_x = addr.overflowing_add(self.x as Word).0;
                 let page_cross = addr & 0xFF00 != addr_x & 0xFF00;
-                let data = mem.read(addr);
+                let data = mem.read(addr_x);
 
                 Fetched {
                     addr: addr_x,
@@ -174,7 +179,7 @@ impl CPU {
                 let addr = (hi << 8) | lo;
                 let addr_y = addr.overflowing_add(self.y as Word).0;
                 let page_cross = addr & 0xFF00 != addr_y & 0xFF00;
-                let data = mem.read(addr);
+                let data = mem.read(addr_y);
 
                 Fetched {
                     addr: addr_y,
