@@ -13,9 +13,6 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 fn main() {
-    let a = 1 << 7;
-    println!("{:08b}", a);
-
     let mut mem = Ram::new();
 
     // LDA $AA
@@ -37,6 +34,7 @@ fn main() {
 
     let mut real_tick: bool;
     let mut cpu = CPU::new();
+    cpu.reset();
 
     for _ in clock::Oscillator::with_mhz(1) {
         real_tick = cpu.tick(&mut bus);
