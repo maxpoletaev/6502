@@ -15,22 +15,29 @@ use std::rc::Rc;
 fn main() {
     let mut mem = Ram::new();
 
-    // LDA $AA
-    mem.write(0x0000, OP_LDA_IMM);
-    mem.write(0x0001, 0xAA);
+    // JMP $A000
+    mem.write(0xFFFC, OP_JMP_ABS);
+    mem.write(0xFFFD, 0x00);
+    mem.write(0xFFFE, 0xA0);
 
-    // INC $0011
-    mem.write(0x0002, OP_INC_ABS);
-    mem.write(0x0003, 0x00);
-    mem.write(0x0004, 0x11);
+    // LDA #$AA
+    mem.write(0xA000, OP_LDA_IMM);
+    mem.write(0xA001, 0xAA);
 
-    // LDA #11
-    mem.write(0x0005, OP_LDA_ZP);
-    mem.write(0x0006, 0x11);
+    // INC $1122
+    mem.write(0x1122, 0x05);
+    mem.write(0xA002, OP_INC_ABS);
+    mem.write(0xA003, 0x22);
+    mem.write(0xA004, 0x11);
+
+    // LDA $1122
+    mem.write(0xA005, OP_LDA_ABS);
+    mem.write(0xA006, 0x22);
+    mem.write(0xA007, 0x11);
 
     let mut bus = Bus::new();
     let mem: Rc<RefCell<dyn Memory>> = Rc::new(RefCell::new(mem));
-    bus.plug_in((0x0000, 0x00FF), Rc::clone(&mem)).unwrap();
+    bus.plug_in((0x0000, 0xFFFF), Rc::clone(&mem)).unwrap();
 
     let mut real_tick: bool;
     let mut cpu = CPU::new();

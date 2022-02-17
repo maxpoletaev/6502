@@ -73,7 +73,7 @@ impl CPU {
     fn run_opcode(&mut self, opcode: Byte, mem: &mut dyn Memory) -> u8 {
         match opcode {
             OP_LDA_IMM => self.lda(mem, AddrMode::Imm, 2),
-            OP_LDA_ZP => self.lda(mem, AddrMode::Zp, 3),
+            OP_LDA_ZP0 => self.lda(mem, AddrMode::Zp, 3),
             OP_LDA_ZPX => self.lda(mem, AddrMode::ZpX, 4),
             OP_LDA_ABS => self.lda(mem, AddrMode::Abs, 4),
             OP_LDA_ABX => self.lda(mem, AddrMode::AbsX, 4),
@@ -81,18 +81,22 @@ impl CPU {
             OP_LDA_IDX => self.lda(mem, AddrMode::IndX, 6),
             OP_LDA_IDY => self.lda(mem, AddrMode::IndY, 5),
 
-            OP_INC_ZP => self.inc(mem, AddrMode::Zp, 5),
+            OP_INC_ZP0 => self.inc(mem, AddrMode::Zp, 5),
             OP_INC_ZPX => self.inc(mem, AddrMode::ZpX, 6),
             OP_INC_ABS => self.inc(mem, AddrMode::Abs, 6),
             OP_INC_ABX => self.inc(mem, AddrMode::AbsX, 7),
-            OP_NOP => self.nop(),
+
+            OP_JMP_ABS => self.jmp(mem, AddrMode::Abs, 3),
+            OP_JMP_IND => self.jmp(mem, AddrMode::Ind, 5),
+
+            OP_NOP => self.nop(mem, AddrMode::Imp, 2),
 
             _ => panic!("unknown opcode: {:02X}", opcode),
         }
     }
 
-    fn nop(&mut self) -> u8 {
-        2
+    fn nop(&mut self, _mem: &dyn Memory, _mode: AddrMode, cycles: u8) -> u8 {
+        cycles
     }
 
     fn set_zn(&mut self, data: Byte) {
@@ -139,9 +143,8 @@ impl CPU {
             }
             AddrMode::Abs => {
                 let lo = mem.read(self.pc) as Word;
-                self.pc += 1;
-                let hi = mem.read(self.pc) as Word;
-                self.pc += 1;
+                let hi = mem.read(self.pc + 1) as Word;
+                self.pc += 2;
 
                 let addr = (hi << 8) | lo;
                 let data = mem.read(addr);
@@ -154,9 +157,8 @@ impl CPU {
             }
             AddrMode::AbsX => {
                 let lo = mem.read(self.pc) as Word;
-                self.pc += 1;
-                let hi = mem.read(self.pc) as Word;
-                self.pc += 1;
+                let hi = mem.read(self.pc + 1) as Word;
+                self.pc += 2;
 
                 let addr = (hi << 8) | lo;
                 let addr_x = addr.overflowing_add(self.x as Word).0;
@@ -171,10 +173,8 @@ impl CPU {
             }
             AddrMode::AbsY => {
                 let lo = mem.read(self.pc) as Word;
-                self.pc += 1;
-
-                let hi = mem.read(self.pc) as Word;
-                self.pc += 1;
+                let hi = mem.read(self.pc + 1) as Word;
+                self.pc += 2;
 
                 let addr = (hi << 8) | lo;
                 let addr_y = addr.overflowing_add(self.y as Word).0;
@@ -187,6 +187,27 @@ impl CPU {
                     page_cross,
                 }
             }
+            AddrMode::Ind => {
+                let ptr_addr = {
+                    let lo = mem.read(self.pc) as Word;
+                    let hi = mem.read(self.pc + 1) as Word;
+                    self.pc += 2;
+                    (hi << 8) | lo
+                };
+
+                let addr = {
+                    let lo = mem.read(ptr_addr) as Word;
+                    let hi = mem.read(ptr_addr + 1) as Word;
+                    (hi << 8) | lo
+                };
+
+                let data = mem.read(addr);
+                Fetched {
+                    addr,
+                    data,
+                    page_cross: false,
+                }
+            }
             AddrMode::IndX => {
                 let ptr_addr = {
                     let mut addr = mem.read(self.pc);
@@ -197,7 +218,7 @@ impl CPU {
 
                 let addr = {
                     let lo = mem.read(ptr_addr) as Word;
-                    let hi = mem.read(ptr_addr.overflowing_add(1).0) as Word;
+                    let hi = mem.read(ptr_addr + 1) as Word;
                     (hi << 8) | lo
                 };
 
@@ -214,7 +235,7 @@ impl CPU {
 
                 let addr = {
                     let lo = mem.read(ptr_addr) as Word;
-                    let hi = mem.read(ptr_addr.overflowing_add(1).0) as Word;
+                    let hi = mem.read(ptr_addr + 1) as Word;
                     (hi << 8) | lo
                 };
 
@@ -247,6 +268,12 @@ impl CPU {
         let data = f.data.overflowing_add(1).0;
         mem.write(f.addr, data);
         self.set_zn(data);
+        cycles
+    }
+
+    fn jmp(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+        self.pc = f.addr;
         cycles
     }
 
