@@ -93,6 +93,9 @@ impl CPU {
             OP_INC_ABS => self.inc(mem, AddrMode::Abs, 6),
             OP_INC_ABX => self.inc(mem, AddrMode::AbsX, 7),
 
+            OP_INX_IMP => self.inx(mem, AddrMode::Imp, 2),
+            OP_INY_IMP => self.iny(mem, AddrMode::Imp, 2),
+
             OP_JMP_ABS => self.jmp(mem, AddrMode::Abs, 3),
             OP_JMP_IND => self.jmp(mem, AddrMode::Ind, 5),
 
@@ -306,6 +309,18 @@ impl CPU {
         let data = f.data.overflowing_add(1).0;
         mem.write(f.addr, data);
         self.set_zn(data);
+        cycles
+    }
+
+    fn inx(&mut self, _mem: &mut dyn Memory, _mode: AddrMode, cycles: u8) -> u8 {
+        self.x = self.x.overflowing_add(1).0;
+        self.set_zn(self.x);
+        cycles
+    }
+
+    fn iny(&mut self, _mem: &mut dyn Memory, _mode: AddrMode, cycles: u8) -> u8 {
+        self.y = self.y.overflowing_add(1).0;
+        self.set_zn(self.y);
         cycles
     }
 

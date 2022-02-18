@@ -311,6 +311,40 @@ mod inc_test {
     }
 }
 
+mod inx_test {
+    use super::*;
+
+    #[test]
+    fn inx_imp() {
+        let (mut cpu, mut mem) = setup();
+
+        // INC X
+        mem.write(0xFF00, OP_INX_IMP);
+        cpu.x = 0x01;
+
+        cpu.tick(&mut mem);
+        assert_eq!(2, cpu.cycles);
+        assert_eq!(0x02, cpu.x);
+    }
+}
+
+mod iny_test {
+    use super::*;
+
+    #[test]
+    fn iny_imp() {
+        let (mut cpu, mut mem) = setup();
+
+        // INC Y
+        mem.write(0xFF00, OP_INY_IMP);
+        cpu.y = 0x01;
+
+        cpu.tick(&mut mem);
+        assert_eq!(2, cpu.cycles);
+        assert_eq!(0x02, cpu.y);
+    }
+}
+
 mod jmp_test {
     use super::*;
 

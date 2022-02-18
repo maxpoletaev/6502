@@ -24,3 +24,7 @@ pub const OP_INC_ZP0: Byte = 0xE6;
 pub const OP_INC_ZPX: Byte = 0xF6;
 pub const OP_INC_ABS: Byte = 0xEE;
 pub const OP_INC_ABX: Byte = 0xFE;
+
+pub const OP_INX_IMP: Byte = 0xE8;
+
+pub const OP_INY_IMP: Byte = 0xC8;
