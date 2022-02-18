@@ -14,6 +14,12 @@ pub const OP_LDA_ABY: Byte = 0xB9;
 pub const OP_LDA_IDX: Byte = 0xA1;
 pub const OP_LDA_IDY: Byte = 0xB1;
 
+pub const OP_LDX_IMM: Byte = 0xA2;
+pub const OP_LDX_ZP0: Byte = 0xA6;
+pub const OP_LDX_ZPY: Byte = 0xB6;
+pub const OP_LDX_ABS: Byte = 0xAE;
+pub const OP_LDX_ABY: Byte = 0xBE;
+
 pub const OP_INC_ZP0: Byte = 0xE6;
 pub const OP_INC_ZPX: Byte = 0xF6;
 pub const OP_INC_ABS: Byte = 0xEE;

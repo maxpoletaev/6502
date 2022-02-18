@@ -17,6 +17,7 @@ enum AddrMode {
     Imm,
     Zp,
     ZpX,
+    ZpY,
     Abs,
     AbsX,
     AbsY,
@@ -81,6 +82,12 @@ impl CPU {
             OP_LDA_IDX => self.lda(mem, AddrMode::IndX, 6),
             OP_LDA_IDY => self.lda(mem, AddrMode::IndY, 5),
 
+            OP_LDX_IMM => self.ldx(mem, AddrMode::Imm, 2),
+            OP_LDX_ZP0 => self.ldx(mem, AddrMode::Zp, 3),
+            OP_LDX_ZPY => self.ldx(mem, AddrMode::ZpY, 4),
+            OP_LDX_ABS => self.ldx(mem, AddrMode::Abs, 4),
+            OP_LDX_ABY => self.ldx(mem, AddrMode::AbsY, 4),
+
             OP_INC_ZP0 => self.inc(mem, AddrMode::Zp, 5),
             OP_INC_ZPX => self.inc(mem, AddrMode::ZpX, 6),
             OP_INC_ABS => self.inc(mem, AddrMode::Abs, 6),
@@ -129,15 +136,28 @@ impl CPU {
                 }
             }
             AddrMode::ZpX => {
-                let mut addr = mem.read(self.pc);
+                let zp_addr = mem.read(self.pc);
                 self.pc += 1;
 
-                addr = addr.overflowing_add(self.x).0;
+                let addr = zp_addr.overflowing_add(self.x).0 as Word;
                 let data = mem.read(addr as Word);
 
                 Fetched {
-                    addr: (addr as Word),
-                    data: data,
+                    addr,
+                    data,
+                    page_cross: false,
+                }
+            }
+            AddrMode::ZpY => {
+                let zp_addr = mem.read(self.pc);
+                self.pc += 1;
+
+                let addr = zp_addr.overflowing_add(self.y).0 as Word;
+                let data = mem.read(addr);
+
+                Fetched {
+                    addr,
+                    data,
                     page_cross: false,
                 }
             }
@@ -271,6 +291,16 @@ impl CPU {
         cycles
     }
 
+    fn ldx(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+        self.x = f.data;
+        if f.page_cross {
+            cycles += 1;
+        }
+        self.set_zn(self.x);
+        cycles
+    }
+
     fn inc(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
         let f = self.fetch(mem, mode);
         let data = f.data.overflowing_add(1).0;
@@ -307,8 +337,8 @@ impl CPU {
         let opcode = mem.read(self.pc);
         self.pc += 1;
 
+        self.set_flag(FLAG_UNUSED, true); // should always be true
         self.cycles = self.run_opcode(opcode, mem);
-        self.set_flag(FLAG_UNUSED, true);
         true
     }
 }

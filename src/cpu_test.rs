@@ -149,8 +149,93 @@ mod lda_test {
         mem.write(0xFF02, 0x30);
 
         cpu.tick(&mut mem);
-        assert_eq!(cpu.cycles, 4);
+        assert_eq!(4, cpu.cycles);
         assert_eq!(0x11, cpu.a);
+    }
+}
+
+mod ldx_test {
+    use super::*;
+
+    #[test]
+    fn ldx_imm() {
+        let (mut cpu, mut mem) = setup();
+
+        // LDX #$11
+        mem.write(0xFF00, OP_LDX_IMM);
+        mem.write(0xFF01, 0x11);
+
+        cpu.tick(&mut mem);
+        assert_eq!(2, cpu.cycles);
+        assert_eq!(0x11, cpu.x);
+    }
+
+    #[test]
+    fn ldx_zp() {
+        let (mut cpu, mut mem) = setup();
+
+        // value to be loaded
+        mem.write(0x00AA, 0x11);
+
+        // LDX $AA
+        mem.write(0xFF00, OP_LDX_ZP0);
+        mem.write(0xFF01, 0xAA);
+
+        cpu.tick(&mut mem);
+        assert_eq!(3, cpu.cycles);
+        assert_eq!(0x11, cpu.x);
+    }
+
+    #[test]
+    fn ldx_zpy() {
+        let (mut cpu, mut mem) = setup();
+
+        // value to be loaded
+        mem.write(0x00AA, 0x11);
+
+        // LDX $A9,Y
+        mem.write(0xFF00, OP_LDX_ZPY);
+        mem.write(0xFF01, 0xA9);
+        cpu.y = 0x01;
+
+        cpu.tick(&mut mem);
+        assert_eq!(4, cpu.cycles);
+        assert_eq!(0x11, cpu.x);
+    }
+
+    #[test]
+    fn ldx_abs() {
+        let (mut cpu, mut mem) = setup();
+
+        // value to be loaded
+        mem.write(0xABCD, 0x11);
+
+        // LDX $ABCD
+        mem.write(0xFF00, OP_LDX_ABS);
+        mem.write(0xFF01, 0xCD);
+        mem.write(0xFF02, 0xAB);
+
+        cpu.tick(&mut mem);
+        assert_eq!(4, cpu.cycles);
+        assert_eq!(0x11, cpu.x);
+    }
+
+    #[test]
+    fn ldx_aby() {
+        let (mut cpu, mut mem) = setup();
+
+        // value to be loaded
+        mem.write(0xABCD, 0x11);
+
+        // LDX $ABCD
+        mem.write(0xFF00, OP_LDX_ABY);
+        mem.write(0xFF01, 0xCC);
+        mem.write(0xFF02, 0xAB);
+        cpu.y = 0x01;
+
+        cpu.tick(&mut mem);
+        assert_eq!(4, cpu.cycles);
+        assert_eq!(0x11, cpu.x);
     }
 }
 
