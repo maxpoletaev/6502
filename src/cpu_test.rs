@@ -3,8 +3,7 @@ use crate::mem::{Memory, Ram};
 
 fn setup() -> (CPU, Ram) {
     let mut cpu = CPU::new();
-    cpu.reset();
-    cpu.pc = 0xFF00;
+    cpu.reset(0xFF00);
 
     let mem = Ram::new();
     (cpu, mem)

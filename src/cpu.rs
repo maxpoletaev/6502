@@ -330,8 +330,8 @@ impl CPU {
         cycles
     }
 
-    pub fn reset(&mut self) {
-        self.pc = 0xFFFC;
+    pub fn reset(&mut self, reset_vec: Word) {
+        self.pc = reset_vec;
         self.sp = 0xFF;
         self.flags = 0;
 
