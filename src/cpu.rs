@@ -1,19 +1,20 @@
+use std::process;
+
 use crate::mem::Memory;
 use crate::opcodes::*;
 use crate::types::*;
 
-const FLAG_CARRY: Flag = 1 << 0;
-const FLAG_ZERO: Flag = 1 << 1;
-const FLAG_NO_INTERRUPT: Flag = 1 << 2;
-const FLAG_DECIMAL: Flag = 1 << 3;
-const FLAG_BREAK: Flag = 1 << 4;
-const FLAG_UNUSED: Flag = 1 << 5;
-const FLAG_OVERFLOW: Flag = 1 << 6;
-const FLAG_NEGATIVE: Flag = 1 << 7;
+const FL_CARRY: Flag = 1 << 0;
+const FL_ZERO: Flag = 1 << 1;
+const FL_NO_INTERRUPT: Flag = 1 << 2;
+const FL_DECIMAL: Flag = 1 << 3;
+const FL_BREAK: Flag = 1 << 4;
+const FL_UNUSED: Flag = 1 << 5;
+const FL_OVERFLOW: Flag = 1 << 6;
+const FL_NEGATIVE: Flag = 1 << 7;
 
 #[derive(Debug)]
 enum AddrMode {
-    Imp,
     Imm,
     Zp,
     ZpX,
@@ -24,13 +25,12 @@ enum AddrMode {
     Ind,
     IndX,
     IndY,
-    Rel,
 }
 
 #[derive(Debug)]
-struct Fetched {
+struct Operand {
     addr: Word,
-    data: Byte,
+    value: Byte,
     page_cross: bool,
 }
 
@@ -73,6 +73,15 @@ impl CPU {
 
     fn run_opcode(&mut self, opcode: Byte, mem: &mut dyn Memory) -> u8 {
         match opcode {
+            OP_ADC_IMM => self.adc(mem, AddrMode::Imm, 2),
+            OP_ADC_ZP0 => self.adc(mem, AddrMode::Zp, 3),
+            OP_ADC_ZPX => self.adc(mem, AddrMode::ZpX, 4),
+            OP_ADC_ABS => self.adc(mem, AddrMode::Abs, 4),
+            OP_ADC_ABX => self.adc(mem, AddrMode::AbsX, 4),
+            OP_ADC_ABY => self.adc(mem, AddrMode::AbsY, 4),
+            OP_ADC_IDX => self.adc(mem, AddrMode::IndX, 6),
+            OP_ADC_IDY => self.adc(mem, AddrMode::IndY, 5),
+
             OP_LDA_IMM => self.lda(mem, AddrMode::Imm, 2),
             OP_LDA_ZP0 => self.lda(mem, AddrMode::Zp, 3),
             OP_LDA_ZPX => self.lda(mem, AddrMode::ZpX, 4),
@@ -93,37 +102,39 @@ impl CPU {
             OP_INC_ABS => self.inc(mem, AddrMode::Abs, 6),
             OP_INC_ABX => self.inc(mem, AddrMode::AbsX, 7),
 
-            OP_INX_IMP => self.inx(mem, AddrMode::Imp, 2),
-            OP_INY_IMP => self.iny(mem, AddrMode::Imp, 2),
+            OP_INX_IMP => self.inx(/*mem, AddrMode::Imp,*/ 2),
+            OP_INY_IMP => self.iny(/*mem, AddrMode::Imp,*/ 2),
 
             OP_JMP_ABS => self.jmp(mem, AddrMode::Abs, 3),
             OP_JMP_IND => self.jmp(mem, AddrMode::Ind, 5),
 
-            OP_NOP => self.nop(mem, AddrMode::Imp, 2),
+            OP_CLC_IMP => self.clc(/*mem, AddrMode::Imp,*/ 2),
 
-            _ => panic!("unknown opcode: {:02X}", opcode),
+            OP_NOP => self.nop(/*mem, AddrMode::Imp,*/ 2),
+
+            _ => {
+                println!("--- last cpu state ---");
+                print_state(&self);
+                panic!("invalid opcode: 0x{:02x}", opcode);
+            }
         }
     }
 
-    fn nop(&mut self, _mem: &dyn Memory, _mode: AddrMode, cycles: u8) -> u8 {
-        cycles
-    }
-
     fn set_zn(&mut self, data: Byte) {
-        self.set_flag(FLAG_ZERO, data == 0x00);
-        self.set_flag(FLAG_NEGATIVE, data & (1 << 7) > 0); // set if bit 7 of A is set
+        self.set_flag(FL_ZERO, data == 0x00);
+        self.set_flag(FL_NEGATIVE, data & (1 << 7) > 0); // set if bit 7 of A is set
     }
 
-    fn fetch(&mut self, mem: &mut dyn Memory, mode: AddrMode) -> Fetched {
+    fn fetch(&mut self, mem: &mut dyn Memory, mode: AddrMode) -> Operand {
         match mode {
             AddrMode::Imm => {
                 let addr = self.pc;
-                let data = mem.read(addr);
+                let value = mem.read(addr);
                 self.pc += 1;
 
-                Fetched {
+                Operand {
                     addr,
-                    data,
+                    value,
                     page_cross: false,
                 }
             }
@@ -131,10 +142,10 @@ impl CPU {
                 let addr = mem.read(self.pc) as Word;
                 self.pc += 1;
 
-                let data = mem.read(addr);
-                Fetched {
+                let value = mem.read(addr);
+                Operand {
                     addr,
-                    data,
+                    value,
                     page_cross: false,
                 }
             }
@@ -143,11 +154,11 @@ impl CPU {
                 self.pc += 1;
 
                 let addr = zp_addr.overflowing_add(self.x).0 as Word;
-                let data = mem.read(addr as Word);
+                let value = mem.read(addr as Word);
 
-                Fetched {
+                Operand {
                     addr,
-                    data,
+                    value,
                     page_cross: false,
                 }
             }
@@ -156,11 +167,11 @@ impl CPU {
                 self.pc += 1;
 
                 let addr = zp_addr.overflowing_add(self.y).0 as Word;
-                let data = mem.read(addr);
+                let value = mem.read(addr);
 
-                Fetched {
+                Operand {
                     addr,
-                    data,
+                    value,
                     page_cross: false,
                 }
             }
@@ -170,11 +181,11 @@ impl CPU {
                 self.pc += 2;
 
                 let addr = (hi << 8) | lo;
-                let data = mem.read(addr);
+                let value = mem.read(addr);
 
-                Fetched {
+                Operand {
                     addr,
-                    data,
+                    value,
                     page_cross: false,
                 }
             }
@@ -186,12 +197,12 @@ impl CPU {
                 let addr = (hi << 8) | lo;
                 let addr_x = addr.overflowing_add(self.x as Word).0;
                 let page_cross = addr & 0xFF00 != addr_x & 0xFF00;
-                let data = mem.read(addr_x);
+                let value = mem.read(addr_x);
 
-                Fetched {
-                    addr: addr_x,
-                    data,
+                Operand {
+                    value,
                     page_cross,
+                    addr: addr_x,
                 }
             }
             AddrMode::AbsY => {
@@ -202,12 +213,12 @@ impl CPU {
                 let addr = (hi << 8) | lo;
                 let addr_y = addr.overflowing_add(self.y as Word).0;
                 let page_cross = addr & 0xFF00 != addr_y & 0xFF00;
-                let data = mem.read(addr_y);
+                let value = mem.read(addr_y);
 
-                Fetched {
-                    addr: addr_y,
-                    data,
+                Operand {
+                    value,
                     page_cross,
+                    addr: addr_y,
                 }
             }
             AddrMode::Ind => {
@@ -232,10 +243,10 @@ impl CPU {
                     (hi << 8) | lo
                 };
 
-                let data = mem.read(addr);
-                Fetched {
+                let value = mem.read(addr);
+                Operand {
                     addr,
-                    data,
+                    value,
                     page_cross: false,
                 }
             }
@@ -253,10 +264,10 @@ impl CPU {
                     (hi << 8) | lo
                 };
 
-                let data = mem.read(addr);
-                Fetched {
+                let value = mem.read(addr);
+                Operand {
                     addr,
-                    data,
+                    value,
                     page_cross: false,
                 }
             }
@@ -272,21 +283,51 @@ impl CPU {
 
                 let addr_y = addr.overflowing_add(self.y as Word).0;
                 let page_cross = addr & 0xFF00 != addr_y & 0xFF00;
-                let data = mem.read(addr_y);
+                let value = mem.read(addr_y);
 
-                Fetched {
+                Operand {
                     addr: addr_y,
-                    data,
+                    value,
                     page_cross,
                 }
             }
-            _ => panic!("unsupported addressing mode: {:?}", mode),
         }
+    }
+
+    fn nop(&mut self, cycles: u8) -> u8 {
+        cycles
+    }
+
+    fn clc(&mut self, cycles: u8) -> u8 {
+        self.set_flag(FL_CARRY, false);
+        cycles
+    }
+
+    fn adc(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+
+        let (new_a, carry) = self.a.overflowing_add(f.value);
+        self.set_flag(FL_CARRY, carry);
+
+        // Detecting signed integer overflow:
+        //  1. Check that the accumulator and the operand both have the same sign (bit 7);
+        //  2. The overflow happens when the sign changes after the operation.
+        let same_sign = (self.a & 1 << 7) ^ (f.value & 1 << 7) == 0;
+        let overflow = same_sign && new_a & 1 << 7 != self.a & 1 << 7;
+        self.set_flag(FL_OVERFLOW, overflow);
+
+        self.a = new_a;
+        self.set_zn(self.a);
+
+        if f.page_cross {
+            cycles += 1;
+        }
+        cycles
     }
 
     fn lda(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
         let f = self.fetch(mem, mode);
-        self.a = f.data;
+        self.a = f.value;
         if f.page_cross {
             cycles += 1;
         }
@@ -296,7 +337,7 @@ impl CPU {
 
     fn ldx(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
         let f = self.fetch(mem, mode);
-        self.x = f.data;
+        self.x = f.value;
         if f.page_cross {
             cycles += 1;
         }
@@ -306,19 +347,19 @@ impl CPU {
 
     fn inc(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
         let f = self.fetch(mem, mode);
-        let data = f.data.overflowing_add(1).0;
+        let data = f.value.overflowing_add(1).0;
         mem.write(f.addr, data);
         self.set_zn(data);
         cycles
     }
 
-    fn inx(&mut self, _mem: &mut dyn Memory, _mode: AddrMode, cycles: u8) -> u8 {
+    fn inx(&mut self, cycles: u8) -> u8 {
         self.x = self.x.overflowing_add(1).0;
         self.set_zn(self.x);
         cycles
     }
 
-    fn iny(&mut self, _mem: &mut dyn Memory, _mode: AddrMode, cycles: u8) -> u8 {
+    fn iny(&mut self, cycles: u8) -> u8 {
         self.y = self.y.overflowing_add(1).0;
         self.set_zn(self.y);
         cycles
@@ -352,14 +393,13 @@ impl CPU {
         let opcode = mem.read(self.pc);
         self.pc += 1;
 
-        self.set_flag(FLAG_UNUSED, true); // should always be true
+        self.set_flag(FL_UNUSED, true); // should always be set
         self.cycles = self.run_opcode(opcode, mem);
         true
     }
 }
 
 pub fn print_state(cpu: &CPU) {
-    println!("--- tick ---");
     println!("FL: 0b{:08b}", cpu.flags);
     println!("PC: 0x{:04X}", cpu.pc);
     println!("SP: 0x{:02X}", cpu.sp);

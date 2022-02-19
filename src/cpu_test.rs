@@ -41,8 +41,8 @@ mod lda_test {
 
         assert_eq!(0xAA, cpu.a);
         assert_eq!(3, cpu.cycles);
-        assert!(!cpu.read_flag(FLAG_ZERO));
-        assert!(cpu.read_flag(FLAG_NEGATIVE));
+        assert!(!cpu.read_flag(FL_ZERO));
+        assert!(cpu.read_flag(FL_NEGATIVE));
     }
 
     #[test]
@@ -60,8 +60,8 @@ mod lda_test {
         cpu.tick(&mut mem);
         assert_eq!(4, cpu.cycles);
         assert_eq!(0xAA, cpu.a);
-        assert!(!cpu.read_flag(FLAG_ZERO));
-        assert!(cpu.read_flag(FLAG_NEGATIVE));
+        assert!(!cpu.read_flag(FL_ZERO));
+        assert!(cpu.read_flag(FL_NEGATIVE));
     }
 
     #[test]
@@ -395,5 +395,222 @@ mod jmp_test {
         cpu.tick(&mut mem);
         assert_eq!(5, cpu.cycles);
         assert_eq!(0xABCD, cpu.pc);
+    }
+}
+
+mod adc_test {
+    use super::*;
+
+    #[test]
+    fn adc_imm() {
+        let (mut cpu, mut mem) = setup();
+
+        // ADC #$02
+        mem.write(0xFF00, OP_ADC_IMM);
+        mem.write(0xFF01, 0x02);
+        cpu.a = 0x01;
+
+        cpu.tick(&mut mem);
+        assert_eq!(2, cpu.cycles);
+        assert_eq!(0x03, cpu.a);
+        assert!(!cpu.read_flag(FL_CARRY));
+        assert!(!cpu.read_flag(FL_NEGATIVE));
+        assert!(!cpu.read_flag(FL_OVERFLOW));
+    }
+
+    #[test]
+    fn adc_carry() {
+        let (mut cpu, mut mem) = setup();
+
+        // ADC #$02
+        mem.write(0xFF00, OP_ADC_IMM);
+        mem.write(0xFF01, 0x02);
+        cpu.a = 0xFF;
+
+        cpu.tick(&mut mem);
+        assert_eq!(0x01, cpu.a);
+        assert!(cpu.read_flag(FL_CARRY));
+        assert!(!cpu.read_flag(FL_OVERFLOW));
+    }
+
+    #[test]
+    fn adc_overflow() {
+        let (mut cpu, mut mem) = setup();
+
+        // ADC #$04
+        mem.write(0xFF00, OP_ADC_IMM);
+        mem.write(0xFF01, 0b01111111);
+        cpu.a = 0b00000001;
+
+        cpu.tick(&mut mem);
+        assert_eq!(0b10000000, cpu.a);
+        assert!(!cpu.read_flag(FL_CARRY));
+        assert!(cpu.read_flag(FL_OVERFLOW));
+        assert!(cpu.read_flag(FL_NEGATIVE));
+    }
+
+    #[test]
+    fn adc_zp() {
+        let (mut cpu, mut mem) = setup();
+
+        // value to be added to A
+        mem.write(0x0011, 0x02);
+
+        // ADC $11
+        mem.write(0xFF00, OP_ADC_ZP0);
+        mem.write(0xFF01, 0x11);
+        cpu.a = 0x02;
+
+        cpu.tick(&mut mem);
+        assert_eq!(3, cpu.cycles);
+        assert_eq!(0x04, cpu.a);
+        assert!(!cpu.read_flag(FL_CARRY));
+        assert!(!cpu.read_flag(FL_OVERFLOW));
+    }
+
+    #[test]
+    fn adc_zpx() {
+        let (mut cpu, mut mem) = setup();
+
+        cpu.x = 0x01;
+        cpu.a = 0x02;
+
+        // value to be added to A
+        mem.write(0x0011, 0x02);
+
+        // ADC $10,X
+        mem.write(0xFF00, OP_ADC_ZPX);
+        mem.write(0xFF01, 0x10);
+
+        cpu.tick(&mut mem);
+        assert_eq!(4, cpu.cycles);
+        assert_eq!(0x04, cpu.a);
+    }
+
+    #[test]
+    fn adc_abs() {
+        let (mut cpu, mut mem) = setup();
+
+        cpu.a = 0x02;
+
+        // value to be added to A
+        mem.write(0xAA11, 0x02);
+
+        // ADC $AA11
+        mem.write(0xFF00, OP_ADC_ABS);
+        mem.write(0xFF01, 0x11);
+        mem.write(0xFF02, 0xAA);
+
+        cpu.tick(&mut mem);
+        assert_eq!(4, cpu.cycles);
+        assert_eq!(0x04, cpu.a);
+    }
+
+    #[test]
+    fn adc_abx() {
+        let (mut cpu, mut mem) = setup();
+
+        cpu.a = 0x02;
+        cpu.x = 0x01;
+
+        // value to be added to A
+        mem.write(0xAA11, 0x02);
+
+        // ADC $AA10,X
+        mem.write(0xFF00, OP_ADC_ABX);
+        mem.write(0xFF01, 0x10);
+        mem.write(0xFF02, 0xAA);
+
+        cpu.tick(&mut mem);
+        assert_eq!(4, cpu.cycles);
+        assert_eq!(0x04, cpu.a);
+    }
+
+    #[test]
+    fn adc_aby() {
+        let (mut cpu, mut mem) = setup();
+
+        cpu.a = 0x02;
+        cpu.y = 0x01;
+
+        // value to be added to A
+        mem.write(0xAA11, 0x02);
+
+        // ADC $AA10,X
+        mem.write(0xFF00, OP_ADC_ABY);
+        mem.write(0xFF01, 0x10);
+        mem.write(0xFF02, 0xAA);
+
+        cpu.tick(&mut mem);
+        assert_eq!(4, cpu.cycles);
+        assert_eq!(0x04, cpu.a);
+    }
+
+    #[test]
+    fn adc_idx() {
+        let (mut cpu, mut mem) = setup();
+
+        cpu.a = 0x02;
+
+        // value to be added to A
+        mem.write(0xAA11, 0x02);
+
+        // pointer to value memory
+        mem.write(0x0004, 0x11);
+        mem.write(0x0005, 0xAA);
+
+        // index
+        cpu.x = 0x02;
+
+        // ADC ($AA10,X)
+        mem.write(0xFF00, OP_ADC_IDX);
+        mem.write(0xFF01, 0x02);
+
+        cpu.tick(&mut mem);
+        assert_eq!(6, cpu.cycles);
+        assert_eq!(0x04, cpu.a);
+    }
+
+    #[test]
+    fn adc_idy() {
+        let (mut cpu, mut mem) = setup();
+
+        cpu.a = 0x02;
+
+        // value to be added to A
+        mem.write(0xAA11, 0x02);
+
+        // target address
+        mem.write(0x0000, 0x10);
+        mem.write(0x0001, 0xAA);
+
+        // value to be added to the address
+        cpu.y = 0x01;
+
+        // ADC ($00),Y
+        mem.write(0xFF00, OP_ADC_IDY);
+        mem.write(0xFF01, 0x00);
+
+        cpu.tick(&mut mem);
+        assert_eq!(5, cpu.cycles);
+        assert_eq!(0x04, cpu.a);
+    }
+}
+
+mod clc_test {
+    use super::*;
+
+    #[test]
+    fn clc_imp() {
+        let (mut cpu, mut mem) = setup();
+
+        cpu.set_flag(FL_CARRY, true);
+        assert!(cpu.read_flag(FL_CARRY));
+
+        mem.write(0xFF00, OP_CLC_IMP);
+
+        cpu.tick(&mut mem);
+        assert_eq!(2, cpu.cycles);
+        assert!(!cpu.read_flag(FL_CARRY));
     }
 }

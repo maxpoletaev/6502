@@ -6,7 +6,6 @@ mod opcodes;
 mod types;
 
 use std::cell::RefCell;
-use std::env;
 use std::fs::File;
 use std::io;
 use std::io::Read;
@@ -59,7 +58,6 @@ fn load_program(f: String, mem: &mut dyn Memory) -> io::Result<()> {
 
 fn main() {
     let opts = Opts::from_clap();
-
     let mut mem = Ram::new();
 
     load_program(opts.program, &mut mem).unwrap_or_else(|err| {
@@ -75,10 +73,13 @@ fn main() {
     let mut cpu = CPU::new();
     cpu.reset(RESET_VECTOR);
 
+    let mut ticks: u64 = 0;
     for _ in clock::Oscillator::with_mhz(1) {
         real_tick = cpu.tick(&mut bus);
         if opts.debug && real_tick {
+            println!("--- tick {} ---", ticks);
             print_state(&cpu);
         }
+        ticks += 1;
     }
 }
