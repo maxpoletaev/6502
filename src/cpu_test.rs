@@ -614,3 +614,150 @@ mod clc_test {
         assert!(!cpu.read_flag(FL_CARRY));
     }
 }
+
+mod bcc_test {
+    use super::*;
+
+    #[test]
+    fn bcc_negative() {
+        let (mut cpu, mut mem) = setup();
+
+        cpu.set_flag(FL_CARRY, true);
+
+        // BCC $10
+        mem.write(0xFF00, OP_BCC_IMP);
+        mem.write(0xFF01, 0x10);
+
+        cpu.tick(&mut mem);
+        assert_eq!(2, cpu.cycles);
+        assert_eq!(0xFF02, cpu.pc);
+    }
+
+    #[test]
+    fn bcc_positive() {
+        let (mut cpu, mut mem) = setup();
+
+        cpu.set_flag(FL_CARRY, false);
+
+        // BCC $10
+        mem.write(0xFF00, OP_BCC_IMP);
+        mem.write(0xFF01, 0x10);
+
+        cpu.tick(&mut mem);
+        assert_eq!(4, cpu.cycles);
+        assert_eq!(0xFF12, cpu.pc);
+    }
+
+    #[test]
+    fn bcc_next_page() {
+        let (mut cpu, mut mem) = setup();
+
+        cpu.set_flag(FL_CARRY, false);
+
+        // BCC $F0
+        mem.write(0xFF00, OP_BCC_IMP);
+        mem.write(0xFF01, 0xFF);
+
+        cpu.tick(&mut mem);
+        assert_eq!(6, cpu.cycles);
+        assert_eq!(0x0001, cpu.pc);
+    }
+}
+
+mod bcs_test {
+    use super::*;
+
+    #[test]
+    fn bcs_negative() {
+        let (mut cpu, mut mem) = setup();
+
+        cpu.set_flag(FL_CARRY, false);
+
+        // BCS $10
+        mem.write(0xFF00, OP_BCS_IMP);
+        mem.write(0xFF01, 0x10);
+
+        cpu.tick(&mut mem);
+        assert_eq!(2, cpu.cycles);
+        assert_eq!(0xFF02, cpu.pc);
+    }
+
+    #[test]
+    fn bcs_positive() {
+        let (mut cpu, mut mem) = setup();
+
+        cpu.set_flag(FL_CARRY, true);
+
+        // BCS $10
+        mem.write(0xFF00, OP_BCS_IMP);
+        mem.write(0xFF01, 0x10);
+
+        cpu.tick(&mut mem);
+        assert_eq!(4, cpu.cycles);
+        assert_eq!(0xFF12, cpu.pc);
+    }
+
+    #[test]
+    fn bcs_next_page() {
+        let (mut cpu, mut mem) = setup();
+
+        cpu.set_flag(FL_CARRY, true);
+
+        // BCS $F0
+        mem.write(0xFF00, OP_BCS_IMP);
+        mem.write(0xFF01, 0xFF);
+
+        cpu.tick(&mut mem);
+        assert_eq!(6, cpu.cycles);
+        assert_eq!(0x0001, cpu.pc);
+    }
+}
+
+mod beq_test {
+    use super::*;
+
+    #[test]
+    fn beq_negative() {
+        let (mut cpu, mut mem) = setup();
+
+        cpu.set_flag(FL_ZERO, false);
+
+        // BCS $10
+        mem.write(0xFF00, OP_BEQ_IMP);
+        mem.write(0xFF01, 0x10);
+
+        cpu.tick(&mut mem);
+        assert_eq!(2, cpu.cycles);
+        assert_eq!(0xFF02, cpu.pc);
+    }
+
+    #[test]
+    fn beq_positive() {
+        let (mut cpu, mut mem) = setup();
+
+        cpu.set_flag(FL_ZERO, true);
+
+        // BCS $10
+        mem.write(0xFF00, OP_BEQ_IMP);
+        mem.write(0xFF01, 0x10);
+
+        cpu.tick(&mut mem);
+        assert_eq!(4, cpu.cycles);
+        assert_eq!(0xFF12, cpu.pc);
+    }
+
+    #[test]
+    fn beq_next_page() {
+        let (mut cpu, mut mem) = setup();
+
+        cpu.set_flag(FL_ZERO, true);
+
+        // BCS $F0
+        mem.write(0xFF00, OP_BEQ_IMP);
+        mem.write(0xFF01, 0xFF);
+
+        cpu.tick(&mut mem);
+        assert_eq!(6, cpu.cycles);
+        assert_eq!(0x0001, cpu.pc);
+    }
+}

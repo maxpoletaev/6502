@@ -25,6 +25,7 @@ enum AddrMode {
     Ind,
     IndX,
     IndY,
+    Rel,
 }
 
 #[derive(Debug)]
@@ -107,6 +108,10 @@ impl CPU {
 
             OP_JMP_ABS => self.jmp(mem, AddrMode::Abs, 3),
             OP_JMP_IND => self.jmp(mem, AddrMode::Ind, 5),
+
+            OP_BCC_IMP => self.bcc(mem, AddrMode::Rel, 2),
+            OP_BCS_IMP => self.bcs(mem, AddrMode::Rel, 2),
+            OP_BEQ_IMP => self.beq(mem, AddrMode::Rel, 2),
 
             OP_CLC_IMP => self.clc(/*mem, AddrMode::Imp,*/ 2),
 
@@ -291,6 +296,22 @@ impl CPU {
                     page_cross,
                 }
             }
+            AddrMode::Rel => {
+                let offset = mem.read(self.pc) as Word;
+                self.pc += 1;
+
+                let addr = self.pc.overflowing_add(offset).0;
+                println!("{:04x}", addr);
+
+                let page_cross = self.pc & 0xFF00 != addr & 0xFF00;
+                let value = mem.read(addr);
+
+                Operand {
+                    addr,
+                    value,
+                    page_cross,
+                }
+            }
         }
     }
 
@@ -368,6 +389,48 @@ impl CPU {
     fn jmp(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
         let f = self.fetch(mem, mode);
         self.pc = f.addr;
+        cycles
+    }
+
+    fn bcc(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+
+        if !self.read_flag(FL_CARRY) {
+            cycles += 2;
+            if f.page_cross {
+                cycles += 2;
+            }
+            self.pc = f.addr;
+        }
+
+        cycles
+    }
+
+    fn bcs(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+
+        if self.read_flag(FL_CARRY) {
+            cycles += 2;
+            if f.page_cross {
+                cycles += 2;
+            }
+            self.pc = f.addr;
+        }
+
+        cycles
+    }
+
+    fn beq(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+
+        if self.read_flag(FL_ZERO) {
+            cycles += 2;
+            if f.page_cross {
+                cycles += 2;
+            }
+            self.pc = f.addr;
+        }
+
         cycles
     }
 

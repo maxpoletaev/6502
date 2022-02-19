@@ -1,5 +1,6 @@
 use crate::types::*;
 
+// NOP - No Operation
 pub const OP_NOP: Byte = 0xEA;
 
 // JMP - Jump to Memory Location
@@ -47,3 +48,12 @@ pub const OP_ADC_IDY: Byte = 0x71;
 
 // CLC - Clear Carry Flag
 pub const OP_CLC_IMP: Byte = 0x18;
+
+// BCC - Branch if Carry Clear
+pub const OP_BCC_IMP: Byte = 0x90;
+
+// BCS - Branch if Carry Set
+pub const OP_BCS_IMP: Byte = 0xB0;
+
+// BEQ - Branch if Equal
+pub const OP_BEQ_IMP: Byte = 0xF0;
