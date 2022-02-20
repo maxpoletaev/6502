@@ -19,7 +19,7 @@ use cpu::{print_state, CPU};
 use mem::{Memory, Ram};
 use types::*;
 
-const RESET_VECTOR: Word = 0xA000;
+const RESET_VECTOR: Word = 0x0300;
 
 struct Opts {
     program: String,
@@ -47,7 +47,7 @@ impl Opts {
 fn load_program(f: String, mem: &mut dyn Memory) -> io::Result<()> {
     let file = File::open(f)?;
 
-    let mut addr = 0xA000;
+    let mut addr = 0x00;
     for byte in file.take(2048).bytes() {
         mem.write(addr, byte.unwrap());
         addr += 1;
@@ -56,7 +56,29 @@ fn load_program(f: String, mem: &mut dyn Memory) -> io::Result<()> {
     Ok(())
 }
 
+struct Stdout {
+    out: Box<dyn io::Write>,
+}
+
+impl Stdout {
+    fn new(out: Box<dyn io::Write>) -> Self {
+        Self { out }
+    }
+}
+
+impl Memory for Stdout {
+    fn read(&self, _addr: Word) -> Byte {
+        0
+    }
+
+    fn write(&mut self, _addr: Word, data: Byte) {
+        self.out.write(&[data]).unwrap();
+        self.out.flush().unwrap();
+    }
+}
+
 fn main() {
+    let out = Stdout::new(Box::new(io::stdout()));
     let opts = Opts::from_clap();
     let mut mem = Ram::new();
 
@@ -67,7 +89,9 @@ fn main() {
 
     let mut bus = Bus::new();
     let mem: Rc<RefCell<dyn Memory>> = Rc::new(RefCell::new(mem));
-    bus.plug_in((0x0000, 0xFFFF), Rc::clone(&mem)).unwrap();
+    let out: Rc<RefCell<dyn Memory>> = Rc::new(RefCell::new(out));
+    bus.plug_in((0x0200, 0x02FF), Rc::clone(&out)).unwrap();
+    bus.plug_in((0x0300, 0xFFFF), Rc::clone(&mem)).unwrap();
 
     let mut real_tick: bool;
     let mut cpu = CPU::new();
