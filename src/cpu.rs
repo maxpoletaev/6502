@@ -1,5 +1,3 @@
-use std::process;
-
 use crate::mem::Memory;
 use crate::opcodes::*;
 use crate::types::*;
@@ -92,6 +90,14 @@ impl CPU {
             OP_LDA_IDX => self.lda(mem, AddrMode::IndX, 6),
             OP_LDA_IDY => self.lda(mem, AddrMode::IndY, 5),
 
+            OP_STA_ZP0 => self.sta(mem, AddrMode::Zp, 3),
+            OP_STA_ZPX => self.sta(mem, AddrMode::ZpX, 4),
+            OP_STA_ABS => self.sta(mem, AddrMode::Abs, 4),
+            OP_STA_ABX => self.sta(mem, AddrMode::AbsX, 5),
+            OP_STA_ABY => self.sta(mem, AddrMode::AbsY, 5),
+            OP_STA_IDX => self.sta(mem, AddrMode::IndX, 6),
+            OP_STA_IDY => self.sta(mem, AddrMode::IndY, 6),
+
             OP_LDX_IMM => self.ldx(mem, AddrMode::Imm, 2),
             OP_LDX_ZP0 => self.ldx(mem, AddrMode::Zp, 3),
             OP_LDX_ZPY => self.ldx(mem, AddrMode::ZpY, 4),
@@ -109,11 +115,23 @@ impl CPU {
             OP_JMP_ABS => self.jmp(mem, AddrMode::Abs, 3),
             OP_JMP_IND => self.jmp(mem, AddrMode::Ind, 5),
 
-            OP_BCC_IMP => self.bcc(mem, AddrMode::Rel, 2),
-            OP_BCS_IMP => self.bcs(mem, AddrMode::Rel, 2),
-            OP_BEQ_IMP => self.beq(mem, AddrMode::Rel, 2),
+            OP_BCC_REL => self.bcc(mem, AddrMode::Rel, 2),
+            OP_BCS_REL => self.bcs(mem, AddrMode::Rel, 2),
+            OP_BEQ_REL => self.beq(mem, AddrMode::Rel, 2),
+            OP_BNE_REL => self.bne(mem, AddrMode::Rel, 2),
+
+            OP_CMP_IMM => self.cmp(mem, AddrMode::Imm, 2),
+            OP_CMP_ZP0 => self.cmp(mem, AddrMode::Zp, 3),
+            OP_CMP_ZPX => self.cmp(mem, AddrMode::ZpX, 4),
+            OP_CMP_ABS => self.cmp(mem, AddrMode::Abs, 4),
+            OP_CMP_ABX => self.cmp(mem, AddrMode::AbsX, 4),
+            OP_CMP_ABY => self.cmp(mem, AddrMode::AbsY, 4),
+            OP_CMP_IDX => self.cmp(mem, AddrMode::IndX, 6),
+            OP_CMP_IDY => self.cmp(mem, AddrMode::IndY, 5),
 
             OP_CLC_IMP => self.clc(/*mem, AddrMode::Imp,*/ 2),
+
+            OP_TXA_REL => self.txa(/*mem, AddrMode::Imp,*/ 2),
 
             OP_NOP => self.nop(/*mem, AddrMode::Imp,*/ 2),
 
@@ -301,8 +319,6 @@ impl CPU {
                 self.pc += 1;
 
                 let addr = self.pc.overflowing_add(offset).0;
-                println!("{:04x}", addr);
-
                 let page_cross = self.pc & 0xFF00 != addr & 0xFF00;
                 let value = mem.read(addr);
 
@@ -331,8 +347,8 @@ impl CPU {
         self.set_flag(FL_CARRY, carry);
 
         // Detecting signed integer overflow:
-        //  1. Check that the accumulator and the operand both have the same sign (bit 7);
-        //  2. The overflow happens when the sign changes after the operation.
+        //  1. Check that the initial value of the accumulator and the operand both have the same sign (bit 7);
+        //  2. We can tell that overflow took place if bit 7 is not the same anymore after the operation.
         let same_sign = (self.a & 1 << 7) ^ (f.value & 1 << 7) == 0;
         let overflow = same_sign && new_a & 1 << 7 != self.a & 1 << 7;
         self.set_flag(FL_OVERFLOW, overflow);
@@ -356,6 +372,12 @@ impl CPU {
         cycles
     }
 
+    fn sta(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+        mem.write(f.addr, self.a);
+        cycles
+    }
+
     fn ldx(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
         let f = self.fetch(mem, mode);
         self.x = f.value;
@@ -363,6 +385,12 @@ impl CPU {
             cycles += 1;
         }
         self.set_zn(self.x);
+        cycles
+    }
+
+    fn stx(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+        mem.write(f.addr, self.x);
         cycles
     }
 
@@ -431,6 +459,40 @@ impl CPU {
             self.pc = f.addr;
         }
 
+        cycles
+    }
+
+    fn bne(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+
+        if !self.read_flag(FL_ZERO) {
+            cycles += 2;
+            if f.page_cross {
+                cycles += 2;
+            }
+            self.pc = f.addr;
+        }
+
+        cycles
+    }
+
+    fn cmp(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+
+        self.set_flag(FL_CARRY, self.a >= f.value);
+        self.set_flag(FL_ZERO, self.a == f.value);
+        //TODO: negative flag
+
+        if f.page_cross {
+            cycles += 1;
+        }
+
+        cycles
+    }
+
+    fn txa(&mut self, cycles: u8) -> u8 {
+        self.a = self.x;
+        self.set_zn(self.a);
         cycles
     }
 

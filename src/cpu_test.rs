@@ -153,6 +153,142 @@ mod lda_test {
     }
 }
 
+mod sta_test {
+    use super::*;
+
+    #[test]
+    fn sta_zp() {
+        let (mut cpu, mut mem) = setup();
+
+        // value to be stored in memory
+        cpu.a = 0x11;
+
+        // STA $02
+        mem.write(0xFF00, OP_STA_ZP0);
+        mem.write(0xFF01, 0x02);
+
+        cpu.tick(&mut mem);
+        assert_eq!(3, cpu.cycles);
+        assert_eq!(0x11, mem.read(0x0002));
+    }
+
+    #[test]
+    fn sta_zpx() {
+        let (mut cpu, mut mem) = setup();
+
+        // value to be stored
+        cpu.a = 0x11;
+
+        // address offset
+        cpu.x = 0x01;
+
+        // STA $01,X
+        mem.write(0xFF00, OP_STA_ZPX);
+        mem.write(0xFF01, 0x01);
+
+        cpu.tick(&mut mem);
+        assert_eq!(4, cpu.cycles);
+        assert_eq!(0x11, mem.read(0x0002));
+    }
+
+    #[test]
+    fn sta_abs() {
+        let (mut cpu, mut mem) = setup();
+
+        // value to be stored in memory
+        cpu.a = 0x11;
+
+        // STA $ABCD
+        mem.write(0xFF00, OP_STA_ABS);
+        mem.write(0xFF01, 0xCD);
+        mem.write(0xFF02, 0xAB);
+
+        cpu.tick(&mut mem);
+        assert_eq!(4, cpu.cycles);
+        assert_eq!(0x11, mem.read(0xABCD));
+    }
+
+    #[test]
+    fn sta_abx() {
+        let (mut cpu, mut mem) = setup();
+
+        // value to be stored in memory
+        cpu.a = 0x11;
+
+        // address offset
+        cpu.x = 0x01;
+
+        // STA $ABCD
+        mem.write(0xFF00, OP_STA_ABX);
+        mem.write(0xFF01, 0xCC);
+        mem.write(0xFF02, 0xAB);
+
+        cpu.tick(&mut mem);
+        assert_eq!(5, cpu.cycles);
+        assert_eq!(0x11, mem.read(0xABCD));
+    }
+
+    #[test]
+    fn sta_aby() {
+        let (mut cpu, mut mem) = setup();
+
+        // value to be stored in memory
+        cpu.a = 0x11;
+
+        // address offset
+        cpu.y = 0x01;
+
+        // STA $ABCD
+        mem.write(0xFF00, OP_STA_ABY);
+        mem.write(0xFF01, 0xCC);
+        mem.write(0xFF02, 0xAB);
+
+        cpu.tick(&mut mem);
+        assert_eq!(5, cpu.cycles);
+        assert_eq!(0x11, mem.read(0xABCD));
+    }
+
+    #[test]
+    fn sta_idx() {
+        let (mut cpu, mut mem) = setup();
+
+        // value to be stored in memory
+        cpu.a = 0x11;
+
+        // pointer to target memory
+        mem.write(0x00A0, 0xCD);
+        mem.write(0x00A1, 0xAB);
+
+        // STA ($A0,X)
+        mem.write(0xFF00, OP_STA_IDX);
+        mem.write(0xFF01, 0xA0);
+
+        cpu.tick(&mut mem);
+        assert_eq!(6, cpu.cycles);
+        assert_eq!(0x11, mem.read(0xABCD));
+    }
+
+    #[test]
+    fn sta_idy() {
+        let (mut cpu, mut mem) = setup();
+
+        // value to be stored in memory
+        cpu.a = 0x11;
+
+        // pointer to target memory
+        mem.write(0x00A0, 0xCD);
+        mem.write(0x00A1, 0xAB);
+
+        // STA ($A0),Y
+        mem.write(0xFF00, OP_STA_IDY);
+        mem.write(0xFF01, 0xA0);
+
+        cpu.tick(&mut mem);
+        assert_eq!(6, cpu.cycles);
+        assert_eq!(0x11, mem.read(0xABCD));
+    }
+}
+
 mod ldx_test {
     use super::*;
 
@@ -625,7 +761,7 @@ mod bcc_test {
         cpu.set_flag(FL_CARRY, true);
 
         // BCC $10
-        mem.write(0xFF00, OP_BCC_IMP);
+        mem.write(0xFF00, OP_BCC_REL);
         mem.write(0xFF01, 0x10);
 
         cpu.tick(&mut mem);
@@ -640,7 +776,7 @@ mod bcc_test {
         cpu.set_flag(FL_CARRY, false);
 
         // BCC $10
-        mem.write(0xFF00, OP_BCC_IMP);
+        mem.write(0xFF00, OP_BCC_REL);
         mem.write(0xFF01, 0x10);
 
         cpu.tick(&mut mem);
@@ -655,7 +791,7 @@ mod bcc_test {
         cpu.set_flag(FL_CARRY, false);
 
         // BCC $F0
-        mem.write(0xFF00, OP_BCC_IMP);
+        mem.write(0xFF00, OP_BCC_REL);
         mem.write(0xFF01, 0xFF);
 
         cpu.tick(&mut mem);
@@ -674,7 +810,7 @@ mod bcs_test {
         cpu.set_flag(FL_CARRY, false);
 
         // BCS $10
-        mem.write(0xFF00, OP_BCS_IMP);
+        mem.write(0xFF00, OP_BCS_REL);
         mem.write(0xFF01, 0x10);
 
         cpu.tick(&mut mem);
@@ -689,7 +825,7 @@ mod bcs_test {
         cpu.set_flag(FL_CARRY, true);
 
         // BCS $10
-        mem.write(0xFF00, OP_BCS_IMP);
+        mem.write(0xFF00, OP_BCS_REL);
         mem.write(0xFF01, 0x10);
 
         cpu.tick(&mut mem);
@@ -704,7 +840,7 @@ mod bcs_test {
         cpu.set_flag(FL_CARRY, true);
 
         // BCS $F0
-        mem.write(0xFF00, OP_BCS_IMP);
+        mem.write(0xFF00, OP_BCS_REL);
         mem.write(0xFF01, 0xFF);
 
         cpu.tick(&mut mem);
@@ -723,7 +859,7 @@ mod beq_test {
         cpu.set_flag(FL_ZERO, false);
 
         // BCS $10
-        mem.write(0xFF00, OP_BEQ_IMP);
+        mem.write(0xFF00, OP_BEQ_REL);
         mem.write(0xFF01, 0x10);
 
         cpu.tick(&mut mem);
@@ -738,7 +874,7 @@ mod beq_test {
         cpu.set_flag(FL_ZERO, true);
 
         // BCS $10
-        mem.write(0xFF00, OP_BEQ_IMP);
+        mem.write(0xFF00, OP_BEQ_REL);
         mem.write(0xFF01, 0x10);
 
         cpu.tick(&mut mem);
@@ -753,11 +889,100 @@ mod beq_test {
         cpu.set_flag(FL_ZERO, true);
 
         // BCS $F0
-        mem.write(0xFF00, OP_BEQ_IMP);
+        mem.write(0xFF00, OP_BEQ_REL);
         mem.write(0xFF01, 0xFF);
 
         cpu.tick(&mut mem);
         assert_eq!(6, cpu.cycles);
         assert_eq!(0x0001, cpu.pc);
+    }
+}
+
+mod bne_test {
+    use super::*;
+
+    #[test]
+    fn bne_negative() {
+        let (mut cpu, mut mem) = setup();
+
+        cpu.set_flag(FL_ZERO, true);
+
+        // BCS $10
+        mem.write(0xFF00, OP_BNE_REL);
+        mem.write(0xFF01, 0x10);
+
+        cpu.tick(&mut mem);
+        assert_eq!(2, cpu.cycles);
+        assert_eq!(0xFF02, cpu.pc);
+    }
+
+    #[test]
+    fn bne_positive() {
+        let (mut cpu, mut mem) = setup();
+
+        cpu.set_flag(FL_ZERO, false);
+
+        // BCS $10
+        mem.write(0xFF00, OP_BNE_REL);
+        mem.write(0xFF01, 0x10);
+
+        cpu.tick(&mut mem);
+        assert_eq!(4, cpu.cycles);
+        assert_eq!(0xFF12, cpu.pc);
+    }
+
+    #[test]
+    fn bne_next_page() {
+        let (mut cpu, mut mem) = setup();
+
+        cpu.set_flag(FL_ZERO, false);
+
+        // BCS $F0
+        mem.write(0xFF00, OP_BNE_REL);
+        mem.write(0xFF01, 0xFF);
+
+        cpu.tick(&mut mem);
+        assert_eq!(6, cpu.cycles);
+        assert_eq!(0x0001, cpu.pc);
+    }
+}
+
+mod cmp_test {
+    use super::*;
+
+    #[test]
+    fn cmp_imm() {
+        let (mut cpu, mut mem) = setup();
+
+        // value to compare
+        cpu.a = 0x11;
+
+        // CMP #$05
+        mem.write(0xFF00, OP_CMP_IMM);
+        mem.write(0xFF01, 0x05);
+
+        cpu.tick(&mut mem);
+        assert_eq!(2, cpu.cycles);
+        assert!(cpu.read_flag(FL_CARRY));
+        assert!(!cpu.read_flag(FL_ZERO));
+    }
+}
+
+mod cmp_txa {
+    use super::*;
+
+    #[test]
+    fn txa_imp() {
+        let (mut cpu, mut mem) = setup();
+
+        // value to be copied
+        cpu.x = 0x11;
+
+        // TXA
+        mem.write(0xFF00, OP_TXA_REL);
+
+        cpu.tick(&mut mem);
+        assert_eq!(2, cpu.cycles);
+        assert_eq!(0x11, cpu.x);
     }
 }

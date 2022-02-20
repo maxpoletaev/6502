@@ -17,6 +17,15 @@ pub const OP_LDA_ABY: Byte = 0xB9;
 pub const OP_LDA_IDX: Byte = 0xA1;
 pub const OP_LDA_IDY: Byte = 0xB1;
 
+// STA - Store Accumulator
+pub const OP_STA_ZP0: Byte = 0x85;
+pub const OP_STA_ZPX: Byte = 0x95;
+pub const OP_STA_ABS: Byte = 0x8D;
+pub const OP_STA_ABX: Byte = 0x9D;
+pub const OP_STA_ABY: Byte = 0x99;
+pub const OP_STA_IDX: Byte = 0x81;
+pub const OP_STA_IDY: Byte = 0x91;
+
 // LDX - Load X Register
 pub const OP_LDX_IMM: Byte = 0xA2;
 pub const OP_LDX_ZP0: Byte = 0xA6;
@@ -50,10 +59,26 @@ pub const OP_ADC_IDY: Byte = 0x71;
 pub const OP_CLC_IMP: Byte = 0x18;
 
 // BCC - Branch if Carry Clear
-pub const OP_BCC_IMP: Byte = 0x90;
+pub const OP_BCC_REL: Byte = 0x90;
 
 // BCS - Branch if Carry Set
-pub const OP_BCS_IMP: Byte = 0xB0;
+pub const OP_BCS_REL: Byte = 0xB0;
 
 // BEQ - Branch if Equal
-pub const OP_BEQ_IMP: Byte = 0xF0;
+pub const OP_BEQ_REL: Byte = 0xF0;
+
+// BNE - Branch if Not Equal
+pub const OP_BNE_REL: Byte = 0xD0;
+
+// TXA - Transfer X to Accumulator
+pub const OP_TXA_REL: Byte = 0x8A;
+
+// CMP - Compare
+pub const OP_CMP_IMM: Byte = 0xC9;
+pub const OP_CMP_ZP0: Byte = 0xC5;
+pub const OP_CMP_ZPX: Byte = 0xD5;
+pub const OP_CMP_ABS: Byte = 0xCD;
+pub const OP_CMP_ABX: Byte = 0xDD;
+pub const OP_CMP_ABY: Byte = 0xD9;
+pub const OP_CMP_IDX: Byte = 0xC1;
+pub const OP_CMP_IDY: Byte = 0xD1;
