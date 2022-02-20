@@ -354,8 +354,12 @@ impl CPU {
                 }
             }
             AddrMode::Rel => {
-                let offset = mem.read(self.pc) as Word;
+                let mut offset = mem.read(self.pc) as Word;
                 self.pc += 1;
+
+                if offset & (1 << 7) != 0 {
+                    offset = offset | 0xFF00;
+                }
 
                 let addr = self.pc.overflowing_add(offset).0;
                 let page_cross = self.pc & 0xFF00 != addr & 0xFF00;
@@ -492,7 +496,6 @@ impl CPU {
 
     fn bcc(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
         let f = self.fetch(mem, mode);
-
         if !self.read_flag(FL_CARRY) {
             cycles += 2;
             if f.page_cross {
@@ -500,13 +503,11 @@ impl CPU {
             }
             self.pc = f.addr;
         }
-
         cycles
     }
 
     fn bcs(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
         let f = self.fetch(mem, mode);
-
         if self.read_flag(FL_CARRY) {
             cycles += 2;
             if f.page_cross {
@@ -514,13 +515,11 @@ impl CPU {
             }
             self.pc = f.addr;
         }
-
         cycles
     }
 
     fn beq(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
         let f = self.fetch(mem, mode);
-
         if self.read_flag(FL_ZERO) {
             cycles += 2;
             if f.page_cross {
@@ -528,13 +527,11 @@ impl CPU {
             }
             self.pc = f.addr;
         }
-
         cycles
     }
 
     fn bne(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
         let f = self.fetch(mem, mode);
-
         if !self.read_flag(FL_ZERO) {
             cycles += 2;
             if f.page_cross {
@@ -542,21 +539,18 @@ impl CPU {
             }
             self.pc = f.addr;
         }
-
         cycles
     }
 
     fn cmp(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
         let f = self.fetch(mem, mode);
-
+        let r = self.a.overflowing_sub(f.value).0;
+        self.set_flag(FL_NEGATIVE, r & (1 << 7) != 0);
         self.set_flag(FL_CARRY, self.a >= f.value);
-        self.set_flag(FL_ZERO, self.a == f.value);
-        //TODO: negative flag
-
+        self.set_flag(FL_ZERO, r == 0);
         if f.page_cross {
             cycles += 1;
         }
-
         cycles
     }
 
