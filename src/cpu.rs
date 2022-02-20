@@ -34,10 +34,10 @@ struct Operand {
 }
 
 pub struct CPU {
-    flags: Byte, // Status flags
-    sp: Byte,    // Stack pointer
-    pc: Word,    // Program counter
+    sp: Byte, // Stack pointer
+    pc: Word, // Program counter
 
+    p: Byte, // Status flags
     a: Byte, // Accumulator
     x: Byte, // X register
     y: Byte, // Y register
@@ -48,9 +48,9 @@ pub struct CPU {
 impl CPU {
     pub fn new() -> CPU {
         CPU {
-            flags: 0,
             sp: 0,
             pc: 0,
+            p: 0,
             a: 0,
             x: 0,
             y: 0,
@@ -60,14 +60,14 @@ impl CPU {
 
     fn set_flag(&mut self, flag: Flag, value: bool) {
         if value {
-            self.flags |= flag;
+            self.p |= flag;
         } else {
-            self.flags &= !flag;
+            self.p &= !flag;
         }
     }
 
     fn read_flag(&self, flag: Flag) -> bool {
-        (self.flags & flag) > 0
+        (self.p & flag) > 0
     }
 
     fn run_opcode(&mut self, opcode: Byte, mem: &mut dyn Memory) -> u8 {
@@ -135,11 +135,18 @@ impl CPU {
             OP_TXA_IMP => self.txa(/*mem, AddrMode::Imp,*/ 2),
             OP_TAY_IMP => self.tay(/*mem, AddrMode::Imp,*/ 2),
             OP_TYA_IMP => self.tya(/*mem, AddrMode::Imp,*/ 2),
+            OP_TSX_IMP => self.tsx(/*mem, AddrMode::Imp,*/ 2),
+            OP_TXS_IMP => self.txs(/*mem, AddrMode::Imp,*/ 2),
+
+            OP_PHA_IMP => self.pha(mem, /*AddrMode::Imp,*/ 3),
+            OP_PHP_IMP => self.php(mem, /*AddrMode::Imp,*/ 3),
+            OP_PLA_IMP => self.pla(mem, /*AddrMode::Imp,*/ 4),
+            OP_PLP_IMP => self.plp(mem, /*AddrMode::Imp,*/ 4),
 
             OP_NOP => self.nop(/*mem, AddrMode::Imp,*/ 2),
 
             _ => {
-                println!("--- last cpu state ---");
+                println!("---- last cpu state ----");
                 print_state(&self);
                 panic!("invalid opcode: 0x{:02x}", opcode);
             }
@@ -149,6 +156,19 @@ impl CPU {
     fn set_zn(&mut self, data: Byte) {
         self.set_flag(FL_ZERO, data == 0x00);
         self.set_flag(FL_NEGATIVE, data & (1 << 7) > 0); // set if bit 7 of A is set
+    }
+
+    fn stack_push(&mut self, mem: &mut dyn Memory, data: Byte) {
+        let addr = 0x0100 | (self.sp as Word);
+        self.sp = self.sp.overflowing_sub(1).0;
+        mem.write(addr, data);
+    }
+
+    fn stack_pop(&mut self, mem: &mut dyn Memory) -> Byte {
+        self.sp = self.sp.overflowing_add(1).0;
+        let addr = 0x0100 | (self.sp as Word);
+        let data = mem.read(addr);
+        data
     }
 
     fn fetch(&mut self, mem: &mut dyn Memory, mode: AddrMode) -> Operand {
@@ -517,10 +537,41 @@ impl CPU {
         cycles
     }
 
+    fn tsx(&mut self, cycles: u8) -> u8 {
+        self.x = self.sp;
+        self.set_zn(self.x);
+        cycles
+    }
+
+    fn txs(&mut self, cycles: u8) -> u8 {
+        self.sp = self.x;
+        cycles
+    }
+
+    fn pha(&mut self, mem: &mut dyn Memory, cycles: u8) -> u8 {
+        self.stack_push(mem, self.a);
+        cycles
+    }
+
+    fn php(&mut self, mem: &mut dyn Memory, cycles: u8) -> u8 {
+        self.stack_push(mem, self.p);
+        cycles
+    }
+
+    fn pla(&mut self, mem: &mut dyn Memory, cycles: u8) -> u8 {
+        self.a = self.stack_pop(mem);
+        cycles
+    }
+
+    fn plp(&mut self, mem: &mut dyn Memory, cycles: u8) -> u8 {
+        self.p = self.stack_pop(mem);
+        cycles
+    }
+
     pub fn reset(&mut self, reset_vec: Word) {
         self.pc = reset_vec;
         self.sp = 0xFF;
-        self.flags = 0;
+        self.p = 0;
 
         self.a = 0;
         self.x = 0;
@@ -546,7 +597,7 @@ impl CPU {
 }
 
 pub fn print_state(cpu: &CPU) {
-    println!("FL: 0b{:08b}", cpu.flags);
+    println!("P:  0b{:08b}", cpu.p);
     println!("PC: 0x{:04X}", cpu.pc);
     println!("SP: 0x{:02X}", cpu.sp);
     println!("A:  0x{:02X}", cpu.a);

@@ -51,6 +51,14 @@ impl OpcodeTest {
         assert_eq!(v, self.cpu.y);
     }
 
+    fn assert_sp(&self, v: Byte) {
+        assert_eq!(v, self.cpu.sp);
+    }
+
+    fn assert_p(&self, v: Byte) {
+        assert_eq!(v, self.cpu.p);
+    }
+
     fn assert_mem(&self, addr: Word, v: Byte) {
         assert_eq!(v, self.mem.read(addr));
     }
@@ -990,7 +998,6 @@ mod cmp_test {
 mod tax_test {
     use super::*;
 
-    // TAX
     opcode_test!(tax_imp, |mut t: OpcodeTest| {
         t.cpu.a = 0xFF;
         t.cpu.x = 0x00;
@@ -1006,7 +1013,6 @@ mod tax_test {
 mod tay_test {
     use super::*;
 
-    // TAY
     opcode_test!(tay_imp, |mut t: OpcodeTest| {
         t.cpu.a = 0xFF;
         t.cpu.y = 0x00;
@@ -1022,7 +1028,6 @@ mod tay_test {
 mod txa_test {
     use super::*;
 
-    // TXA
     opcode_test!(txa_imp, |mut t: OpcodeTest| {
         t.cpu.x = 0xFF;
         t.cpu.a = 0x00;
@@ -1038,7 +1043,6 @@ mod txa_test {
 mod tya_test {
     use super::*;
 
-    // TXA
     opcode_test!(tya_imp, |mut t: OpcodeTest| {
         t.cpu.y = 0xFF;
         t.cpu.a = 0x00;
@@ -1048,5 +1052,93 @@ mod tya_test {
         t.assert_a(0xFF);
         t.assert_flag_unset(FL_ZERO);
         t.assert_flag_set(FL_NEGATIVE);
+    });
+}
+
+mod tsx_test {
+    use super::*;
+
+    opcode_test!(tsx_imp, |mut t: OpcodeTest| {
+        t.cpu.sp = 0xFF;
+        t.cpu.x = 0x00;
+
+        t.exec(OP_TSX_IMP, 0);
+        t.assert_cycles(2);
+        t.assert_x(0xFF);
+        t.assert_flag_unset(FL_ZERO);
+        t.assert_flag_set(FL_NEGATIVE);
+    });
+}
+
+mod txs_test {
+    use super::*;
+
+    opcode_test!(tsx_imp, |mut t: OpcodeTest| {
+        t.cpu.sp = 0x00;
+        t.cpu.x = 0xAA;
+
+        t.exec(OP_TXS_IMP, 0);
+        t.assert_cycles(2);
+        t.assert_sp(0xAA);
+
+        // flags shouldn't be affected
+        t.assert_flag_unset(FL_ZERO);
+        t.assert_flag_unset(FL_NEGATIVE);
+    });
+}
+
+mod pha_test {
+    use super::*;
+
+    opcode_test!(pha_imp, |mut t: OpcodeTest| {
+        t.cpu.a = 0xAA;
+
+        t.exec(OP_PHA_IMP, 0);
+        t.assert_cycles(3);
+        t.assert_sp(0xFE);
+        t.assert_mem(0x01FF, 0xAA);
+    });
+}
+
+mod php_test {
+    use super::*;
+
+    opcode_test!(php_imp, |mut t: OpcodeTest| {
+        t.cpu.p = 0xAA;
+
+        t.exec(OP_PHP_IMP, 0);
+        t.assert_cycles(3);
+        t.assert_sp(0xFE);
+        t.assert_mem(0x01FF, 0xAA);
+    });
+}
+
+mod pla_test {
+    use super::*;
+
+    opcode_test!(pla_imp, |mut t: OpcodeTest| {
+        t.mem.write(0x01FF, 0x11);
+        t.cpu.sp = 0xFE;
+        t.cpu.a = 0x00;
+
+        t.exec(OP_PLA_IMP, 0);
+        t.assert_cycles(4);
+        t.assert_sp(0xFF);
+        t.assert_a(0x11);
+    });
+}
+
+mod plp_test {
+    use super::*;
+
+    opcode_test!(plp_imp, |mut t: OpcodeTest| {
+        t.mem.write(0x01FF, 0xFF);
+        t.cpu.sp = 0xFE;
+        t.cpu.p = 0x00;
+
+        t.exec(OP_PLP_IMP, 0);
+        t.assert_cycles(4);
+        t.assert_sp(0xFF);
+        t.assert_p(0xFF);
     });
 }

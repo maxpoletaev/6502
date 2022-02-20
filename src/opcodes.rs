@@ -80,7 +80,13 @@ pub const OP_TXA_IMP: Byte = 0x8A;
 pub const OP_TAY_IMP: Byte = 0xA8;
 
 // TYA - Transfer Y to Accumulator
-pub const OP_TYA_IMP: Byte = 0x9A;
+pub const OP_TYA_IMP: Byte = 0x98;
+
+// TSX - Transfer Stack Pointer to X
+pub const OP_TSX_IMP: Byte = 0xBA;
+
+// TXS - Transfer X to Stack Pointer
+pub const OP_TXS_IMP: Byte = 0x9A;
 
 // CMP - Compare
 pub const OP_CMP_IMM: Byte = 0xC9;
@@ -91,3 +97,15 @@ pub const OP_CMP_ABX: Byte = 0xDD;
 pub const OP_CMP_ABY: Byte = 0xD9;
 pub const OP_CMP_IDX: Byte = 0xC1;
 pub const OP_CMP_IDY: Byte = 0xD1;
+
+// PHA - Push Accumulator
+pub const OP_PHA_IMP: Byte = 0x48;
+
+// PHP - Push Processor Status
+pub const OP_PHP_IMP: Byte = 0x08;
+
+// PLA - Pull Accumulator
+pub const OP_PLA_IMP: Byte = 0x68;
+
+// PLP - Pull Processor Status
+pub const OP_PLP_IMP: Byte = 0x28;
