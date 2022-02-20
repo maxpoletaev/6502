@@ -114,6 +114,8 @@ impl CPU {
 
             OP_JMP_ABS => self.jmp(mem, AddrMode::Abs, 3),
             OP_JMP_IND => self.jmp(mem, AddrMode::Ind, 5),
+            OP_JSR_ABS => self.jsr(mem, AddrMode::Abs, 6),
+            OP_RTS_IMP => self.rts(mem, /*AddrMode::Imp,*/ 6),
 
             OP_BCC_REL => self.bcc(mem, AddrMode::Rel, 2),
             OP_BCS_REL => self.bcs(mem, AddrMode::Rel, 2),
@@ -440,6 +442,21 @@ impl CPU {
     fn jmp(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
         let f = self.fetch(mem, mode);
         self.pc = f.addr;
+        cycles
+    }
+
+    fn jsr(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+        self.stack_push(mem, self.pc as Byte);
+        self.stack_push(mem, (self.pc >> 8) as Byte);
+        self.pc = f.addr;
+        cycles
+    }
+
+    fn rts(&mut self, mem: &mut dyn Memory, cycles: u8) -> u8 {
+        let hi = self.stack_pop(mem) as Word;
+        let lo = self.stack_pop(mem) as Word;
+        self.pc = (hi << 8) | lo;
         cycles
     }
 

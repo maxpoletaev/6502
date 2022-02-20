@@ -7,6 +7,12 @@ pub const OP_NOP: Byte = 0xEA;
 pub const OP_JMP_ABS: Byte = 0x4C;
 pub const OP_JMP_IND: Byte = 0x6C;
 
+// JSR - Jump to Subroutine
+pub const OP_JSR_ABS: Byte = 0x20;
+
+// RTS - Return from Subroutine
+pub const OP_RTS_IMP: Byte = 0x60;
+
 // LDA - Load Accumulator
 pub const OP_LDA_IMM: Byte = 0xA9;
 pub const OP_LDA_ZP0: Byte = 0xA5;

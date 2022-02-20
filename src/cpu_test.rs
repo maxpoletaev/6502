@@ -36,39 +36,50 @@ impl OpcodeTest {
     }
 
     fn assert_cycles(&self, n: u8) {
-        assert_eq!(n, self.cpu.cycles);
+        assert_eq!(n, self.cpu.cycles, "cycles={}, want {}", self.cpu.cycles, n);
     }
 
     fn assert_a(&self, v: Byte) {
-        assert_eq!(v, self.cpu.a);
+        assert_eq!(v, self.cpu.a, "A=0x{:02X}, want 0x{:02X}", self.cpu.a, v);
     }
 
     fn assert_x(&self, v: Byte) {
-        assert_eq!(v, self.cpu.x);
+        assert_eq!(v, self.cpu.x, "X=0x{:02X}, want 0x{:02X}", self.cpu.x, v);
     }
 
     fn assert_y(&self, v: Byte) {
-        assert_eq!(v, self.cpu.y);
+        assert_eq!(v, self.cpu.y, "Y=0x{:02X}, want 0x{:02X}", self.cpu.y, v);
+    }
+
+    fn assert_pc(&self, v: Word) {
+        assert_eq!(v, self.cpu.pc, "PC=0x{:04X}, want 0x{:04X}", self.cpu.pc, v);
     }
 
     fn assert_sp(&self, v: Byte) {
-        assert_eq!(v, self.cpu.sp);
+        assert_eq!(v, self.cpu.sp, "SP=0x{:04X}, want 0x{:04X}", self.cpu.sp, v);
     }
 
     fn assert_p(&self, v: Byte) {
-        assert_eq!(v, self.cpu.p);
+        assert_eq!(v, self.cpu.p, "P=0b{:08b}, want 0b{:08b}", self.cpu.p, v);
     }
 
     fn assert_mem(&self, addr: Word, v: Byte) {
-        assert_eq!(v, self.mem.read(addr));
+        assert_eq!(
+            v,
+            self.mem.read(addr),
+            "mem[0x{:04X}]=0x{:02X}, want 0x{:02X}",
+            addr,
+            self.mem.read(addr),
+            v
+        );
     }
 
     fn assert_flag_set(&self, fl: Flag) {
-        assert_eq!(true, self.cpu.read_flag(fl));
+        assert_eq!(true, self.cpu.read_flag(fl), "flag {} not set", fl);
     }
 
     fn assert_flag_unset(&self, fl: Flag) {
-        assert_eq!(false, self.cpu.read_flag(fl));
+        assert_eq!(false, self.cpu.read_flag(fl), "flag {} set", fl);
     }
 }
 
@@ -559,6 +570,34 @@ mod jmp_test {
         assert_eq!(5, cpu.cycles);
         assert_eq!(0xABCD, cpu.pc);
     }
+}
+
+mod jsr_test {
+    use super::*;
+
+    // JSR $AABB
+    opcode_test!(jsr_abs, |mut t: OpcodeTest| {
+        t.exec(OP_JSR_ABS, 0xAABB);
+
+        t.assert_pc(0xAABB);
+        t.assert_sp(0xFD);
+        t.assert_mem(0x01FF, 0x03);
+        t.assert_mem(0x01FE, 0xFF);
+    });
+}
+
+mod rts_test {
+    use super::*;
+
+    opcode_test!(rts_imp, |mut t: OpcodeTest| {
+        t.mem.write(0x01FF, 0x03);
+        t.mem.write(0x01FE, 0xFF);
+        t.cpu.sp = 0xFD;
+
+        t.exec(OP_RTS_IMP, 0);
+        t.assert_sp(0xFF);
+        t.assert_pc(0xFF03);
+    });
 }
 
 mod adc_test {

@@ -48,7 +48,7 @@ fn parse_cli_args() -> Opts {
 fn load_program(f: String, mem: &mut dyn Memory) -> io::Result<()> {
     let file = File::open(f)?;
 
-    let mut addr = 0x00;
+    let mut addr = RESET_VECTOR;
     for byte in file.take(2048).bytes() {
         mem.write(addr, byte.unwrap());
         addr += 1;
@@ -72,9 +72,12 @@ impl Memory for Stdout {
         0
     }
 
-    fn write(&mut self, _addr: Word, data: Byte) {
+    fn write(&mut self, addr: Word, data: Byte) {
+        if addr == 0xFF {
+            self.out.flush().unwrap();
+            return;
+        }
         self.out.write(&[data]).unwrap();
-        self.out.flush().unwrap();
     }
 }
 
@@ -92,7 +95,7 @@ fn main() {
     let mem: Rc<RefCell<dyn Memory>> = Rc::new(RefCell::new(mem));
     let out: Rc<RefCell<dyn Memory>> = Rc::new(RefCell::new(out));
     bus.plug_in((0x0200, 0x02FF), Rc::clone(&out)).unwrap();
-    bus.plug_in((0x0300, 0xFFFF), Rc::clone(&mem)).unwrap();
+    bus.plug_in((0x0000, 0xFFFF), Rc::clone(&mem)).unwrap();
 
     let mut real_tick: bool;
     let mut cpu = CPU::new();

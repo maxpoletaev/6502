@@ -21,24 +21,11 @@ impl Bus {
         }
     }
 
-    fn ranges_overlap(&self, a: MemRange, b: MemRange) -> bool {
-        a.0 <= b.1 && b.0 <= a.1
-    }
-
     pub fn plug_in(
         &mut self,
         range: MemRange,
         device: Rc<RefCell<dyn Memory>>,
     ) -> Result<(), String> {
-        for existing_device in &self.devices {
-            if self.ranges_overlap(range, existing_device.range) {
-                return Err(format!(
-                    "devices overlap: {:?} and {:?}",
-                    existing_device.range, range
-                ));
-            }
-        }
-
         self.devices.push(MappedMemory { range, device });
         Ok(())
     }
@@ -148,29 +135,5 @@ mod bus_test {
         let device = device.borrow();
         assert_eq!(device.addr, 0x0000);
         assert_eq!(device.data, 0xFF);
-    }
-
-    #[test]
-    fn conflict() {
-        let device = Rc::new(RefCell::new(TestDevice {
-            addr: 0xAAAA,
-            data: 0x00,
-        }));
-
-        let mut bus = Bus::new();
-        bus.plug_in((0x0000, 0x1000), device.clone()).unwrap();
-        bus.plug_in((0x0900, 0x2000), device.clone()).unwrap_err();
-    }
-
-    #[test]
-    fn no_conflict() {
-        let device = Rc::new(RefCell::new(TestDevice {
-            addr: 0xAAAA,
-            data: 0x00,
-        }));
-
-        let mut bus = Bus::new();
-        bus.plug_in((0x0000, 0x1000), device.clone()).unwrap();
-        bus.plug_in((0x1001, 0x2000), device.clone()).unwrap();
     }
 }
