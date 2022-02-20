@@ -15,32 +15,33 @@ use std::rc::Rc;
 use clap::{arg, Command};
 
 use bus::Bus;
+use clock::Oscillator;
 use cpu::{print_state, CPU};
 use mem::{Memory, Ram};
 use types::*;
 
 const RESET_VECTOR: Word = 0x0300;
+const CPU_FREQ_MHZ: f32 = 1.0;
 
 struct Opts {
     program: String,
     debug: bool,
 }
 
-impl Opts {
-    fn from_clap() -> Self {
-        let args = Command::new("mos6502")
-            .args(&[
-                arg!(<program> "Path to the program executable"),
-                arg!(-d --debug ... "Print CPU state on each tick"),
-            ])
-            .get_matches();
+fn parse_cli_args() -> Opts {
+    let args = Command::new("mos6502")
+        .args(&[
+            arg!(<program> "Path to the program executable"),
+            arg!(-d --debug ... "Print CPU state on each tick"),
+        ])
+        .get_matches();
 
-        let program = args.value_of("program").unwrap();
-        let debug = args.is_present("debug");
-        Self {
-            program: String::from(program),
-            debug,
-        }
+    let program = args.value_of("program").unwrap();
+    let debug = args.is_present("debug");
+
+    Opts {
+        program: String::from(program),
+        debug,
     }
 }
 
@@ -79,7 +80,7 @@ impl Memory for Stdout {
 
 fn main() {
     let out = Stdout::new(Box::new(io::stdout()));
-    let opts = Opts::from_clap();
+    let opts = parse_cli_args();
     let mut mem = Ram::new();
 
     load_program(opts.program, &mut mem).unwrap_or_else(|err| {
@@ -98,7 +99,9 @@ fn main() {
     cpu.reset(RESET_VECTOR);
 
     let mut ticks: u64 = 0;
-    for _ in clock::Oscillator::with_mhz(1) {
+    let clock = Oscillator::with_frequency(CPU_FREQ_MHZ);
+
+    for _ in clock {
         real_tick = cpu.tick(&mut bus);
         if opts.debug && real_tick {
             println!("--- tick {} ---", ticks);

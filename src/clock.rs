@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-const MHZ: u64 = 1_000_000;
+const MHZ: f32 = 1_000_000.0;
 
 // Oscillator generates a clock signal at a given frequency.
 // It generally prevents the CPU from running "too fast" on modern hardware.
@@ -10,9 +10,10 @@ pub struct Oscillator {
 }
 
 impl Oscillator {
-    pub fn with_mhz(freq: u64) -> Oscillator {
+    pub fn with_frequency(freq_mhz: f32) -> Oscillator {
+        let freq = (freq_mhz * MHZ) as u64;
         Oscillator {
-            freq: Duration::from_nanos(freq * MHZ),
+            freq: Duration::from_nanos(freq),
             start: Instant::now(),
         }
     }

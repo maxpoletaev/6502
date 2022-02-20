@@ -70,8 +70,17 @@ pub const OP_BEQ_REL: Byte = 0xF0;
 // BNE - Branch if Not Equal
 pub const OP_BNE_REL: Byte = 0xD0;
 
+// TAX - Transfer Accumulator to X
+pub const OP_TAX_IMP: Byte = 0xAA;
+
 // TXA - Transfer X to Accumulator
-pub const OP_TXA_REL: Byte = 0x8A;
+pub const OP_TXA_IMP: Byte = 0x8A;
+
+// TAY - Transfer Accumulator to Y
+pub const OP_TAY_IMP: Byte = 0xA8;
+
+// TYA - Transfer Y to Accumulator
+pub const OP_TYA_IMP: Byte = 0x9A;
 
 // CMP - Compare
 pub const OP_CMP_IMM: Byte = 0xC9;

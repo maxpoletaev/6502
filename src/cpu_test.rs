@@ -987,21 +987,66 @@ mod cmp_test {
     }
 }
 
-mod cmp_txa {
+mod tax_test {
     use super::*;
 
-    #[test]
-    fn txa_imp() {
-        let (mut cpu, mut mem) = setup();
+    // TAX
+    opcode_test!(tax_imp, |mut t: OpcodeTest| {
+        t.cpu.a = 0xFF;
+        t.cpu.x = 0x00;
 
-        // value to be copied
-        cpu.x = 0x11;
+        t.exec(OP_TAX_IMP, 0);
+        t.assert_cycles(2);
+        t.assert_x(0xFF);
+        t.assert_flag_unset(FL_ZERO);
+        t.assert_flag_set(FL_NEGATIVE);
+    });
+}
 
-        // TXA
-        mem.write(0xFF00, OP_TXA_REL);
+mod tay_test {
+    use super::*;
 
-        cpu.tick(&mut mem);
-        assert_eq!(2, cpu.cycles);
-        assert_eq!(0x11, cpu.x);
-    }
+    // TAY
+    opcode_test!(tay_imp, |mut t: OpcodeTest| {
+        t.cpu.a = 0xFF;
+        t.cpu.y = 0x00;
+
+        t.exec(OP_TAY_IMP, 0);
+        t.assert_cycles(2);
+        t.assert_y(0xFF);
+        t.assert_flag_unset(FL_ZERO);
+        t.assert_flag_set(FL_NEGATIVE);
+    });
+}
+
+mod txa_test {
+    use super::*;
+
+    // TXA
+    opcode_test!(txa_imp, |mut t: OpcodeTest| {
+        t.cpu.x = 0xFF;
+        t.cpu.a = 0x00;
+
+        t.exec(OP_TXA_IMP, 0);
+        t.assert_cycles(2);
+        t.assert_a(0xFF);
+        t.assert_flag_unset(FL_ZERO);
+        t.assert_flag_set(FL_NEGATIVE);
+    });
+}
+
+mod tya_test {
+    use super::*;
+
+    // TXA
+    opcode_test!(tya_imp, |mut t: OpcodeTest| {
+        t.cpu.y = 0xFF;
+        t.cpu.a = 0x00;
+
+        t.exec(OP_TYA_IMP, 0);
+        t.assert_cycles(2);
+        t.assert_a(0xFF);
+        t.assert_flag_unset(FL_ZERO);
+        t.assert_flag_set(FL_NEGATIVE);
+    });
 }

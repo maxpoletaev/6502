@@ -131,7 +131,10 @@ impl CPU {
 
             OP_CLC_IMP => self.clc(/*mem, AddrMode::Imp,*/ 2),
 
-            OP_TXA_REL => self.txa(/*mem, AddrMode::Imp,*/ 2),
+            OP_TAX_IMP => self.tax(/*mem, AddrMode::Imp,*/ 2),
+            OP_TXA_IMP => self.txa(/*mem, AddrMode::Imp,*/ 2),
+            OP_TAY_IMP => self.tay(/*mem, AddrMode::Imp,*/ 2),
+            OP_TYA_IMP => self.tya(/*mem, AddrMode::Imp,*/ 2),
 
             OP_NOP => self.nop(/*mem, AddrMode::Imp,*/ 2),
 
@@ -490,8 +493,26 @@ impl CPU {
         cycles
     }
 
+    fn tax(&mut self, cycles: u8) -> u8 {
+        self.x = self.a;
+        self.set_zn(self.x);
+        cycles
+    }
+
     fn txa(&mut self, cycles: u8) -> u8 {
         self.a = self.x;
+        self.set_zn(self.a);
+        cycles
+    }
+
+    fn tay(&mut self, cycles: u8) -> u8 {
+        self.y = self.a;
+        self.set_zn(self.y);
+        cycles
+    }
+
+    fn tya(&mut self, cycles: u8) -> u8 {
+        self.a = self.y;
         self.set_zn(self.a);
         cycles
     }
