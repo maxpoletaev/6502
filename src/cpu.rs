@@ -90,6 +90,18 @@ impl CPU {
             OP_LDA_IDX => self.lda(mem, AddrMode::IndX, 6),
             OP_LDA_IDY => self.lda(mem, AddrMode::IndY, 5),
 
+            OP_LDX_IMM => self.ldx(mem, AddrMode::Imm, 2),
+            OP_LDX_ZP0 => self.ldx(mem, AddrMode::Zp, 3),
+            OP_LDX_ZPY => self.ldx(mem, AddrMode::ZpY, 4),
+            OP_LDX_ABS => self.ldx(mem, AddrMode::Abs, 4),
+            OP_LDX_ABY => self.ldx(mem, AddrMode::AbsY, 4),
+
+            OP_LDY_IMM => self.ldy(mem, AddrMode::Imm, 2),
+            OP_LDY_ZP0 => self.ldy(mem, AddrMode::Zp, 3),
+            OP_LDY_ZPX => self.ldy(mem, AddrMode::ZpX, 4),
+            OP_LDY_ABS => self.ldy(mem, AddrMode::Abs, 4),
+            OP_LDY_ABX => self.ldy(mem, AddrMode::AbsX, 4),
+
             OP_STA_ZP0 => self.sta(mem, AddrMode::Zp, 3),
             OP_STA_ZPX => self.sta(mem, AddrMode::ZpX, 4),
             OP_STA_ABS => self.sta(mem, AddrMode::Abs, 4),
@@ -98,11 +110,13 @@ impl CPU {
             OP_STA_IDX => self.sta(mem, AddrMode::IndX, 6),
             OP_STA_IDY => self.sta(mem, AddrMode::IndY, 6),
 
-            OP_LDX_IMM => self.ldx(mem, AddrMode::Imm, 2),
-            OP_LDX_ZP0 => self.ldx(mem, AddrMode::Zp, 3),
-            OP_LDX_ZPY => self.ldx(mem, AddrMode::ZpY, 4),
-            OP_LDX_ABS => self.ldx(mem, AddrMode::Abs, 4),
-            OP_LDX_ABY => self.ldx(mem, AddrMode::AbsY, 4),
+            OP_STX_ZP0 => self.stx(mem, AddrMode::Zp, 3),
+            OP_STX_ZPY => self.stx(mem, AddrMode::ZpY, 4),
+            OP_STX_ABS => self.stx(mem, AddrMode::Abs, 4),
+
+            OP_STY_ZP0 => self.sty(mem, AddrMode::Zp, 3),
+            OP_STY_ZPX => self.sty(mem, AddrMode::ZpX, 4),
+            OP_STY_ABS => self.sty(mem, AddrMode::Abs, 4),
 
             OP_INC_ZP0 => self.inc(mem, AddrMode::Zp, 5),
             OP_INC_ZPX => self.inc(mem, AddrMode::ZpX, 6),
@@ -397,12 +411,6 @@ impl CPU {
         cycles
     }
 
-    fn sta(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
-        let f = self.fetch(mem, mode);
-        mem.write(f.addr, self.a);
-        cycles
-    }
-
     fn ldx(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
         let f = self.fetch(mem, mode);
         self.x = f.value;
@@ -413,9 +421,31 @@ impl CPU {
         cycles
     }
 
+    fn ldy(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+        self.y = f.value;
+        if f.page_cross {
+            cycles += 1;
+        }
+        self.set_zn(self.y);
+        cycles
+    }
+
+    fn sta(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+        mem.write(f.addr, self.a);
+        cycles
+    }
+
     fn stx(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
         let f = self.fetch(mem, mode);
         mem.write(f.addr, self.x);
+        cycles
+    }
+
+    fn sty(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+        mem.write(f.addr, self.y);
         cycles
     }
 

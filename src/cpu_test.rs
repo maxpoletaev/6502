@@ -74,6 +74,15 @@ impl OpcodeTest {
         );
     }
 
+    fn assert_zn(&self, val: Byte) {
+        let want_z = val == 0;
+        let want_n = (val & (1 << 7)) != 0;
+        let z = self.cpu.read_flag(FL_ZERO);
+        let n = self.cpu.read_flag(FL_NEGATIVE);
+        assert_eq!(z, want_z, "Z=0x{}, want {}", z, want_z,);
+        assert_eq!(n, want_n, "N={}, want {}", n, want_n);
+    }
+
     fn assert_flag_set(&self, fl: Flag) {
         assert_eq!(true, self.cpu.read_flag(fl), "flag {} not set", fl);
     }
@@ -330,86 +339,177 @@ mod sta_test {
 mod ldx_test {
     use super::*;
 
-    #[test]
-    fn ldx_imm() {
-        let (mut cpu, mut mem) = setup();
+    // LDX #$11
+    opcode_test!(ldx_imm, |mut t: OpcodeTest| {
+        t.cpu.x = 0x00;
 
-        // LDX #$11
-        mem.write(0xFF00, OP_LDX_IMM);
-        mem.write(0xFF01, 0x11);
+        t.exec(OP_LDX_IMM, 0x11);
+        t.assert_cycles(2);
+        t.assert_x(0x11);
+        t.assert_zn(0x11);
+    });
 
-        cpu.tick(&mut mem);
-        assert_eq!(2, cpu.cycles);
-        assert_eq!(0x11, cpu.x);
-    }
+    // LDX $AA
+    opcode_test!(ldx_zp, |mut t: OpcodeTest| {
+        t.mem.write(0x00AA, 0x11);
 
-    #[test]
-    fn ldx_zp() {
-        let (mut cpu, mut mem) = setup();
+        t.exec(OP_LDX_ZP0, 0xAA);
+        t.assert_cycles(3);
+        t.assert_x(0x11);
+        t.assert_zn(0x11);
+    });
 
-        // value to be loaded
-        mem.write(0x00AA, 0x11);
+    // LDX $A9,Y
+    opcode_test!(ldx_zpx, |mut t: OpcodeTest| {
+        t.mem.write(0x00AA, 0x11);
+        t.cpu.y = 0x01;
 
-        // LDX $AA
-        mem.write(0xFF00, OP_LDX_ZP0);
-        mem.write(0xFF01, 0xAA);
+        t.exec(OP_LDX_ZPY, 0xA9);
+        t.assert_cycles(4);
+        t.assert_x(0x11);
+        t.assert_zn(0x11);
+    });
 
-        cpu.tick(&mut mem);
-        assert_eq!(3, cpu.cycles);
-        assert_eq!(0x11, cpu.x);
-    }
+    // LDX $ABCD
+    opcode_test!(ldx_abs, |mut t: OpcodeTest| {
+        t.mem.write(0xABCD, 0x11);
 
-    #[test]
-    fn ldx_zpy() {
-        let (mut cpu, mut mem) = setup();
+        t.exec(OP_LDX_ABS, 0xABCD);
+        t.assert_cycles(4);
+        t.assert_x(0x11);
+        t.assert_zn(0x11);
+    });
 
-        // value to be loaded
-        mem.write(0x00AA, 0x11);
+    // LDX $ABCC,Y
+    opcode_test!(ldx_aby, |mut t: OpcodeTest| {
+        t.mem.write(0xABCD, 0x11);
+        t.cpu.y = 0x01;
 
-        // LDX $A9,Y
-        mem.write(0xFF00, OP_LDX_ZPY);
-        mem.write(0xFF01, 0xA9);
-        cpu.y = 0x01;
+        t.exec(OP_LDX_ABY, 0xABCC);
+        t.assert_cycles(4);
+        t.assert_x(0x11);
+        t.assert_zn(0x11);
+    });
+}
 
-        cpu.tick(&mut mem);
-        assert_eq!(4, cpu.cycles);
-        assert_eq!(0x11, cpu.x);
-    }
+mod ldy_test {
+    use super::*;
 
-    #[test]
-    fn ldx_abs() {
-        let (mut cpu, mut mem) = setup();
+    // LDY #$11
+    opcode_test!(immediate, |mut t: OpcodeTest| {
+        t.cpu.y = 0x00;
 
-        // value to be loaded
-        mem.write(0xABCD, 0x11);
+        t.exec(OP_LDY_IMM, 0x11);
+        t.assert_cycles(2);
+        t.assert_y(0x11);
+        t.assert_zn(0x11);
+    });
 
-        // LDX $ABCD
-        mem.write(0xFF00, OP_LDX_ABS);
-        mem.write(0xFF01, 0xCD);
-        mem.write(0xFF02, 0xAB);
+    // LDY $AA
+    opcode_test!(zero_page, |mut t: OpcodeTest| {
+        t.mem.write(0x00AA, 0x11);
 
-        cpu.tick(&mut mem);
-        assert_eq!(4, cpu.cycles);
-        assert_eq!(0x11, cpu.x);
-    }
+        t.exec(OP_LDY_ZP0, 0xAA);
+        t.assert_cycles(3);
+        t.assert_y(0x11);
+        t.assert_zn(0x11);
+    });
 
-    #[test]
-    fn ldx_aby() {
-        let (mut cpu, mut mem) = setup();
+    // LDY $A9,X
+    opcode_test!(zero_page_x, |mut t: OpcodeTest| {
+        t.mem.write(0x00AA, 0x11);
+        t.cpu.x = 0x01;
 
-        // value to be loaded
-        mem.write(0xABCD, 0x11);
+        t.exec(OP_LDY_ZPX, 0xA9);
+        t.assert_cycles(4);
+        t.assert_y(0x11);
+        t.assert_zn(0x11);
+    });
 
-        // LDX $ABCD
-        mem.write(0xFF00, OP_LDX_ABY);
-        mem.write(0xFF01, 0xCC);
-        mem.write(0xFF02, 0xAB);
-        cpu.y = 0x01;
+    // LDY $ABCD
+    opcode_test!(absolute, |mut t: OpcodeTest| {
+        t.mem.write(0xABCD, 0x11);
 
-        cpu.tick(&mut mem);
-        assert_eq!(4, cpu.cycles);
-        assert_eq!(0x11, cpu.x);
-    }
+        t.exec(OP_LDY_ABS, 0xABCD);
+        t.assert_cycles(4);
+        t.assert_y(0x11);
+        t.assert_zn(0x11);
+    });
+
+    // LDY $ABCC,X
+    opcode_test!(absolute_x, |mut t: OpcodeTest| {
+        t.mem.write(0xABCD, 0x11);
+        t.cpu.x = 0x01;
+
+        t.exec(OP_LDY_ABX, 0xABCC);
+        t.assert_cycles(4);
+        t.assert_y(0x11);
+        t.assert_zn(0x11);
+    });
+}
+
+mod stx_test {
+    use super::*;
+
+    // STX $AA
+    opcode_test!(stx_zp, |mut t: OpcodeTest| {
+        t.cpu.x = 0x11;
+
+        t.exec(OP_STX_ZP0, 0xAA);
+        t.assert_cycles(3);
+        t.assert_mem(0xAA, 0x11);
+    });
+
+    // STX $A9,Y
+    opcode_test!(stx_zpy, |mut t: OpcodeTest| {
+        t.cpu.x = 0x11;
+        t.cpu.y = 0x01;
+
+        t.exec(OP_STX_ZPY, 0xA9);
+        t.assert_cycles(4);
+        t.assert_mem(0xAA, 0x11);
+    });
+
+    // STX $ABCD
+    opcode_test!(stx_abs, |mut t: OpcodeTest| {
+        t.cpu.x = 0x11;
+
+        t.exec(OP_STX_ABS, 0xABCD);
+        t.assert_cycles(4);
+        t.assert_mem(0xABCD, 0x11);
+    });
+}
+
+mod sty_test {
+    use super::*;
+
+    // STY $AA
+    opcode_test!(sty_zp, |mut t: OpcodeTest| {
+        t.cpu.y = 0x11;
+
+        t.exec(OP_STY_ZP0, 0xAA);
+        t.assert_cycles(3);
+        t.assert_mem(0xAA, 0x11);
+    });
+
+    // STY $A9,X
+    opcode_test!(sty_zpx, |mut t: OpcodeTest| {
+        t.cpu.y = 0x11;
+        t.cpu.x = 0x01;
+
+        t.exec(OP_STY_ZPX, 0xA9);
+        t.assert_cycles(4);
+        t.assert_mem(0xAA, 0x11);
+    });
+
+    // STY $ABCD
+    opcode_test!(sty_abs, |mut t: OpcodeTest| {
+        t.cpu.y = 0x11;
+
+        t.exec(OP_STY_ABS, 0xABCD);
+        t.assert_cycles(4);
+        t.assert_mem(0xABCD, 0x11);
+    });
 }
 
 mod inc_test {

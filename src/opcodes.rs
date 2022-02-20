@@ -23,6 +23,20 @@ pub const OP_LDA_ABY: Byte = 0xB9;
 pub const OP_LDA_IDX: Byte = 0xA1;
 pub const OP_LDA_IDY: Byte = 0xB1;
 
+// LDX - Load X Register
+pub const OP_LDX_IMM: Byte = 0xA2;
+pub const OP_LDX_ZP0: Byte = 0xA6;
+pub const OP_LDX_ZPY: Byte = 0xB6;
+pub const OP_LDX_ABS: Byte = 0xAE;
+pub const OP_LDX_ABY: Byte = 0xBE;
+
+// LDY - Load Y Register
+pub const OP_LDY_IMM: Byte = 0xA0;
+pub const OP_LDY_ZP0: Byte = 0xA4;
+pub const OP_LDY_ZPX: Byte = 0xB4;
+pub const OP_LDY_ABS: Byte = 0xAC;
+pub const OP_LDY_ABX: Byte = 0xBC;
+
 // STA - Store Accumulator
 pub const OP_STA_ZP0: Byte = 0x85;
 pub const OP_STA_ZPX: Byte = 0x95;
@@ -32,12 +46,15 @@ pub const OP_STA_ABY: Byte = 0x99;
 pub const OP_STA_IDX: Byte = 0x81;
 pub const OP_STA_IDY: Byte = 0x91;
 
-// LDX - Load X Register
-pub const OP_LDX_IMM: Byte = 0xA2;
-pub const OP_LDX_ZP0: Byte = 0xA6;
-pub const OP_LDX_ZPY: Byte = 0xB6;
-pub const OP_LDX_ABS: Byte = 0xAE;
-pub const OP_LDX_ABY: Byte = 0xBE;
+// STX - Store X Register
+pub const OP_STX_ZP0: Byte = 0x86;
+pub const OP_STX_ZPY: Byte = 0x96;
+pub const OP_STX_ABS: Byte = 0x8E;
+
+// STY - Store Y Register
+pub const OP_STY_ZP0: Byte = 0x84;
+pub const OP_STY_ZPX: Byte = 0x94;
+pub const OP_STY_ABS: Byte = 0x8C;
 
 // INC - Increment Memory
 pub const OP_INC_ZP0: Byte = 0xE6;
