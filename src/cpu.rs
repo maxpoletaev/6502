@@ -66,7 +66,7 @@ impl CPU {
         }
     }
 
-    fn read_flag(&mut self, flag: Flag) -> bool {
+    fn read_flag(&self, flag: Flag) -> bool {
         (self.flags & flag) > 0
     }
 

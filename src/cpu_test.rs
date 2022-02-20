@@ -9,148 +9,167 @@ fn setup() -> (CPU, Ram) {
     (cpu, mem)
 }
 
+struct OpcodeTest {
+    cpu: CPU,
+    mem: Ram,
+}
+
+impl OpcodeTest {
+    const RESET_VEC: Word = 0xFF00;
+
+    fn new() -> Self {
+        let mut cpu = CPU::new();
+        cpu.reset(Self::RESET_VEC);
+        let mem = Ram::new();
+        Self { cpu, mem }
+    }
+
+    fn exec(&mut self, opcode: Byte, operand: Word) {
+        self.mem.write(Self::RESET_VEC, opcode);
+
+        let lsb = operand as Byte;
+        let msb = (operand >> 8) as Byte;
+
+        self.mem.write(Self::RESET_VEC + 1, lsb);
+        self.mem.write(Self::RESET_VEC + 2, msb);
+        self.cpu.tick(&mut self.mem);
+    }
+
+    fn assert_cycles(&self, n: u8) {
+        assert_eq!(n, self.cpu.cycles);
+    }
+
+    fn assert_a(&self, v: Byte) {
+        assert_eq!(v, self.cpu.a);
+    }
+
+    fn assert_x(&self, v: Byte) {
+        assert_eq!(v, self.cpu.x);
+    }
+
+    fn assert_y(&self, v: Byte) {
+        assert_eq!(v, self.cpu.y);
+    }
+
+    fn assert_mem(&self, addr: Word, v: Byte) {
+        assert_eq!(v, self.mem.read(addr));
+    }
+
+    fn assert_flag_set(&self, fl: Flag) {
+        assert_eq!(true, self.cpu.read_flag(fl));
+    }
+
+    fn assert_flag_unset(&self, fl: Flag) {
+        assert_eq!(false, self.cpu.read_flag(fl));
+    }
+}
+
+macro_rules! opcode_test {
+    ($name:ident, $fn:expr) => {
+        #[test]
+        fn $name() {
+            $fn(OpcodeTest::new());
+        }
+    };
+}
+
 mod lda_test {
     use super::*;
 
-    #[test]
-    fn lda_imm() {
-        let (mut cpu, mut mem) = setup();
+    // LDA #$AA
+    opcode_test!(lda_imm, |mut t: OpcodeTest| {
+        t.exec(OP_LDA_IMM, 0xAA);
+        t.assert_cycles(2);
+        t.assert_a(0xAA);
+    });
 
-        // LDA #AA
-        mem.write(0xFF00, OP_LDA_IMM);
-        mem.write(0xFF01, 0xAA);
+    // LDA $10
+    opcode_test!(lda_zp, |mut t: OpcodeTest| {
+        t.mem.write(0x0010, 0xAA);
 
-        cpu.tick(&mut mem);
+        t.exec(OP_LDA_ZP0, 0x10);
 
-        assert_eq!(cpu.cycles, 2);
-        assert_eq!(cpu.a, 0xAA);
-    }
+        t.assert_cycles(3);
+        t.assert_a(0xAA);
+        t.assert_flag_set(FL_NEGATIVE);
+        t.assert_flag_unset(FL_ZERO);
+    });
 
-    #[test]
-    fn lda_zp() {
-        let (mut cpu, mut mem) = setup();
+    // LDA $10,X
+    opcode_test!(lda_zpx, |mut t: OpcodeTest| {
+        t.mem.write(0x0011, 0x0A);
 
-        // data to be loaded
-        mem.write(0x0010, 0xAA);
+        t.cpu.x = 0x01;
+        t.exec(OP_LDA_ZPX, 0x10);
 
-        // LDA $10
-        mem.write(0xFF00, OP_LDA_ZP0);
-        mem.write(0xFF01, 0x10);
+        t.assert_cycles(4);
+        t.assert_a(0x0A);
+        t.assert_flag_unset(FL_ZERO);
+        t.assert_flag_unset(FL_NEGATIVE);
+    });
 
-        cpu.tick(&mut mem);
+    // LDA $3033
+    opcode_test!(lda_abs, |mut t: OpcodeTest| {
+        t.mem.write(0x3033, 0x11);
+        t.exec(OP_LDA_ABS, 0x3033);
 
-        assert_eq!(0xAA, cpu.a);
-        assert_eq!(3, cpu.cycles);
-        assert!(!cpu.read_flag(FL_ZERO));
-        assert!(cpu.read_flag(FL_NEGATIVE));
-    }
+        t.assert_cycles(4);
+        t.assert_a(0x11);
+    });
 
-    #[test]
-    fn lda_zpx() {
-        let (mut cpu, mut mem) = setup();
+    // LDA $AAA9,X
+    opcode_test!(lda_abx, |mut t: OpcodeTest| {
+        t.mem.write(0xAAAA, 0x11);
+        t.cpu.x = 0x01;
 
+        t.exec(OP_LDA_ABX, 0xAAA9);
+        t.assert_cycles(4);
+        t.assert_a(0x11);
+    });
+
+    // LDA $AAA9,Y
+    opcode_test!(lda_aby, |mut t: OpcodeTest| {
+        t.mem.write(0xAAAA, 0x11);
+        t.cpu.y = 0x01;
+
+        t.exec(OP_LDA_ABY, 0xAAA9);
+        t.assert_cycles(4);
+        t.assert_a(0x11);
+    });
+
+    // LDA ($A0,X)
+    opcode_test!(lda_idx, |mut t: OpcodeTest| {
         // value to be loaded
-        mem.write(0x0011, 0xAA);
+        t.mem.write(0x01FF, 0x11);
 
-        // LDA $10,X
-        mem.write(0xFF00, OP_LDA_ZPX);
-        mem.write(0xFF01, 0x10);
-        cpu.x = 0x01;
+        // address of the target value
+        t.mem.write(0x00A2, 0xFF);
+        t.mem.write(0x00A3, 0x01);
 
-        cpu.tick(&mut mem);
-        assert_eq!(4, cpu.cycles);
-        assert_eq!(0xAA, cpu.a);
-        assert!(!cpu.read_flag(FL_ZERO));
-        assert!(cpu.read_flag(FL_NEGATIVE));
-    }
+        // index
+        t.cpu.x = 0x02;
 
-    #[test]
-    fn lda_abx() {
-        let (mut cpu, mut mem) = setup();
+        t.exec(OP_LDA_IDX, 0xA0);
+        t.assert_cycles(6);
+        t.assert_a(0x11);
+    });
 
+    // LDY ($A0),Y
+    opcode_test!(lda_idy, |mut t: OpcodeTest| {
         // value to be loaded
-        mem.write(0xAAAA, 0x11);
+        t.mem.write(0x0100, 0x11);
 
-        // LDA $AAA9
-        mem.write(0xFF00, OP_LDA_ABX);
-        mem.write(0xFF01, 0xA9);
-        mem.write(0xFF02, 0xAA);
-        cpu.x = 0x0001;
+        // address of the target value
+        t.mem.write(0x00A0, 0xFF);
+        t.mem.write(0x00A1, 0x00);
 
-        cpu.tick(&mut mem);
-        assert_eq!(4, cpu.cycles);
-        assert_eq!(0x11, cpu.a);
-    }
+        // value to be added to the address
+        t.cpu.y = 0x01;
 
-    #[test]
-    fn lda_aby() {
-        let (mut cpu, mut mem) = setup();
-
-        // data to be loaded
-        mem.write(0xAAAA, 0x11);
-
-        // LDA $AAA9
-        mem.write(0xFF00, OP_LDA_ABY);
-        mem.write(0xFF01, 0xA9);
-        mem.write(0xFF02, 0xAA);
-        cpu.y = 0x0001;
-
-        cpu.tick(&mut mem);
-        assert_eq!(cpu.cycles, 4);
-        assert_eq!(cpu.a, 0x11);
-    }
-
-    #[test]
-    fn lda_idx() {
-        let (mut cpu, mut mem) = setup();
-
-        cpu.x = 0x02;
-        mem.write(0x00A2, 0xFF); // second part of the target address
-        mem.write(0x00A3, 0x01); // first part of the target address
-        mem.write(0x01FF, 0x11); // value to be loaded
-
-        // LDA ($A0,X)
-        mem.write(0xFF00, OP_LDA_IDX);
-        mem.write(0xFF01, 0xA0);
-
-        cpu.tick(&mut mem);
-        assert_eq!(6, cpu.cycles);
-        assert_eq!(0x11, cpu.a);
-    }
-
-    #[test]
-    fn lda_idy() {
-        let (mut cpu, mut mem) = setup();
-
-        cpu.y = 0x01;
-        mem.write(0x00A0, 0xFF); // second part of the target address
-        mem.write(0x00A1, 0x00); // first part of the target address
-        mem.write(0x0100, 0x11); // value to be loaded
-
-        // LDA ($A0),Y
-        mem.write(0xFF00, OP_LDA_IDY);
-        mem.write(0xFF01, 0xA0);
-
-        cpu.tick(&mut mem);
-        assert_eq!(6, cpu.cycles);
-        assert_eq!(0x11, cpu.a);
-    }
-
-    #[test]
-    fn lda_abs() {
-        let (mut cpu, mut mem) = setup();
-
-        mem.write(0x3033, 0x11);
-
-        // LDA $3033
-        mem.write(0xFF00, OP_LDA_ABS);
-        mem.write(0xFF01, 0x33);
-        mem.write(0xFF02, 0x30);
-
-        cpu.tick(&mut mem);
-        assert_eq!(4, cpu.cycles);
-        assert_eq!(0x11, cpu.a);
-    }
+        t.exec(OP_LDA_IDY, 0xA0);
+        t.assert_cycles(6);
+        t.assert_a(0x11);
+    });
 }
 
 mod sta_test {
