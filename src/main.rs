@@ -59,11 +59,15 @@ fn load_program(f: String, mem: &mut dyn Memory) -> io::Result<()> {
 
 struct Stdout {
     out: Box<dyn io::Write>,
+    buf: Vec<u8>,
 }
 
 impl Stdout {
     fn new(out: Box<dyn io::Write>) -> Self {
-        Self { out }
+        Self {
+            out,
+            buf: Vec::with_capacity(255),
+        }
     }
 }
 
@@ -73,11 +77,12 @@ impl Memory for Stdout {
     }
 
     fn write(&mut self, addr: Word, data: Byte) {
+        self.buf.push(data);
         if addr == 0xFF {
+            self.out.write(self.buf.as_slice()).unwrap();
             self.out.flush().unwrap();
-            return;
+            self.buf.clear();
         }
-        self.out.write(&[data]).unwrap();
     }
 }
 

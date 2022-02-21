@@ -149,6 +149,14 @@ impl CPU {
             OP_CMP_IDX => self.cmp(mem, AddrMode::IndX, 6),
             OP_CMP_IDY => self.cmp(mem, AddrMode::IndY, 5),
 
+            OP_CPX_IMM => self.cpx(mem, AddrMode::Imm, 2),
+            OP_CPX_ZP0 => self.cpx(mem, AddrMode::Zp, 3),
+            OP_CPX_ABS => self.cpx(mem, AddrMode::Abs, 4),
+
+            OP_CPY_IMM => self.cpy(mem, AddrMode::Imm, 2),
+            OP_CPY_ZP0 => self.cpy(mem, AddrMode::Zp, 3),
+            OP_CPY_ABS => self.cpy(mem, AddrMode::Abs, 4),
+
             OP_CLC_IMP => self.clc(/*mem, AddrMode::Imp,*/ 2),
 
             OP_TAX_IMP => self.tax(/*mem, AddrMode::Imp,*/ 2),
@@ -599,6 +607,30 @@ impl CPU {
         let r = self.a.overflowing_sub(f.value).0;
         self.set_flag(FL_NEGATIVE, r & (1 << 7) != 0);
         self.set_flag(FL_CARRY, self.a >= f.value);
+        self.set_flag(FL_ZERO, r == 0);
+        if f.page_cross {
+            cycles += 1;
+        }
+        cycles
+    }
+
+    fn cpx(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+        let r = self.x.overflowing_sub(f.value).0;
+        self.set_flag(FL_NEGATIVE, r & (1 << 7) != 0);
+        self.set_flag(FL_CARRY, self.x >= f.value);
+        self.set_flag(FL_ZERO, r == 0);
+        if f.page_cross {
+            cycles += 1;
+        }
+        cycles
+    }
+
+    fn cpy(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+        let r = self.y.overflowing_sub(f.value).0;
+        self.set_flag(FL_NEGATIVE, r & (1 << 7) != 0);
+        self.set_flag(FL_CARRY, self.y >= f.value);
         self.set_flag(FL_ZERO, r == 0);
         if f.page_cross {
             cycles += 1;

@@ -1179,23 +1179,86 @@ mod cmp_test {
         t.assert_flag_unset(FL_ZERO);
         t.assert_flag_set(FL_NEGATIVE);
     });
+}
 
-    // #[test]
-    // fn cmp_imm() {
-    //     let (mut cpu, mut mem) = setup();
+mod cpx_test {
+    use super::*;
 
-    //     // value to compare
-    //     cpu.a = 0x11;
+    opcode_test!(gt, |mut t: OpcodeTest| {
+        t.cpu.x = 0x11;
 
-    //     // CMP #$05
-    //     mem.write(0xFF00, OP_CMP_IMM);
-    //     mem.write(0xFF01, 0x05);
+        t.exec(OP_CPX_IMM, 0x05);
+        t.assert_flag_set(FL_CARRY);
+        t.assert_flag_unset(FL_ZERO);
+        t.assert_flag_unset(FL_NEGATIVE);
+    });
 
-    //     cpu.tick(&mut mem);
-    //     assert_eq!(2, cpu.cycles);
-    //     assert!(cpu.read_flag(FL_CARRY));
-    //     assert!(!cpu.read_flag(FL_ZERO));
-    // }
+    opcode_test!(lt, |mut t: OpcodeTest| {
+        t.cpu.x = 0x05;
+
+        t.exec(OP_CPX_IMM, 0xFF);
+        t.assert_flag_unset(FL_CARRY);
+        t.assert_flag_unset(FL_ZERO);
+        t.assert_flag_unset(FL_NEGATIVE);
+    });
+
+    opcode_test!(eq, |mut t: OpcodeTest| {
+        t.cpu.x = 0xAA;
+
+        t.exec(OP_CPX_IMM, 0xAA);
+        t.assert_flag_set(FL_CARRY);
+        t.assert_flag_set(FL_ZERO);
+        t.assert_flag_unset(FL_NEGATIVE);
+    });
+
+    opcode_test!(negative, |mut t: OpcodeTest| {
+        t.cpu.x = 0x01;
+
+        t.exec(OP_CPX_IMM, 0x02);
+        t.assert_flag_unset(FL_CARRY);
+        t.assert_flag_unset(FL_ZERO);
+        t.assert_flag_set(FL_NEGATIVE);
+    });
+}
+
+mod cpy_test {
+    use super::*;
+
+    opcode_test!(gt, |mut t: OpcodeTest| {
+        t.cpu.y = 0x11;
+
+        t.exec(OP_CPY_IMM, 0x05);
+        t.assert_flag_set(FL_CARRY);
+        t.assert_flag_unset(FL_ZERO);
+        t.assert_flag_unset(FL_NEGATIVE);
+    });
+
+    opcode_test!(lt, |mut t: OpcodeTest| {
+        t.cpu.y = 0x05;
+
+        t.exec(OP_CPY_IMM, 0xFF);
+        t.assert_flag_unset(FL_CARRY);
+        t.assert_flag_unset(FL_ZERO);
+        t.assert_flag_unset(FL_NEGATIVE);
+    });
+
+    opcode_test!(eq, |mut t: OpcodeTest| {
+        t.cpu.y = 0xAA;
+
+        t.exec(OP_CPY_IMM, 0xAA);
+        t.assert_flag_set(FL_CARRY);
+        t.assert_flag_set(FL_ZERO);
+        t.assert_flag_unset(FL_NEGATIVE);
+    });
+
+    opcode_test!(negative, |mut t: OpcodeTest| {
+        t.cpu.y = 0x01;
+
+        t.exec(OP_CPY_IMM, 0x02);
+        t.assert_flag_unset(FL_CARRY);
+        t.assert_flag_unset(FL_ZERO);
+        t.assert_flag_set(FL_NEGATIVE);
+    });
 }
 
 mod tax_test {

@@ -133,6 +133,16 @@ pub const OP_CMP_ABY: Byte = 0xD9;
 pub const OP_CMP_IDX: Byte = 0xC1;
 pub const OP_CMP_IDY: Byte = 0xD1;
 
+// CPX - Compare X Register
+pub const OP_CPX_IMM: Byte = 0xE0;
+pub const OP_CPX_ZP0: Byte = 0xE4;
+pub const OP_CPX_ABS: Byte = 0xEC;
+
+// CPY - Compare Y Register
+pub const OP_CPY_IMM: Byte = 0xC0;
+pub const OP_CPY_ZP0: Byte = 0xC4;
+pub const OP_CPY_ABS: Byte = 0xCC;
+
 // PHA - Push Accumulator
 pub const OP_PHA_IMP: Byte = 0x48;
 
