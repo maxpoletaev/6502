@@ -254,12 +254,12 @@ impl CPU {
 
     fn stack_push(&mut self, mem: &mut dyn Memory, data: Byte) {
         let addr = 0x0100 | (self.sp as Word);
-        self.sp = self.sp.overflowing_sub(1).0;
+        self.sp = self.sp.wrapping_sub(1);
         mem.write(addr, data);
     }
 
     fn stack_pop(&mut self, mem: &mut dyn Memory) -> Byte {
-        self.sp = self.sp.overflowing_add(1).0;
+        self.sp = self.sp.wrapping_add(1);
         let addr = 0x0100 | (self.sp as Word);
         let data = mem.read(addr);
         data
@@ -293,7 +293,7 @@ impl CPU {
                 let zp_addr = mem.read(self.pc);
                 self.pc += 1;
 
-                let addr = zp_addr.overflowing_add(self.x).0 as Word;
+                let addr = zp_addr.wrapping_add(self.x) as Word;
                 let value = mem.read(addr as Word);
 
                 Operand {
@@ -306,7 +306,7 @@ impl CPU {
                 let zp_addr = mem.read(self.pc);
                 self.pc += 1;
 
-                let addr = zp_addr.overflowing_add(self.y).0 as Word;
+                let addr = zp_addr.wrapping_add(self.y) as Word;
                 let value = mem.read(addr);
 
                 Operand {
@@ -335,7 +335,7 @@ impl CPU {
                 self.pc += 2;
 
                 let addr = (hi << 8) | lo;
-                let addr_x = addr.overflowing_add(self.x as Word).0;
+                let addr_x = addr.wrapping_add(self.x as Word);
                 let page_cross = addr & 0xFF00 != addr_x & 0xFF00;
                 let value = mem.read(addr_x);
 
@@ -351,7 +351,7 @@ impl CPU {
                 self.pc += 2;
 
                 let addr = (hi << 8) | lo;
-                let addr_y = addr.overflowing_add(self.y as Word).0;
+                let addr_y = addr.wrapping_add(self.y as Word);
                 let page_cross = addr & 0xFF00 != addr_y & 0xFF00;
                 let value = mem.read(addr_y);
 
@@ -394,7 +394,7 @@ impl CPU {
                 let ptr_addr = {
                     let mut addr = mem.read(self.pc);
                     self.pc += 1;
-                    addr = addr.overflowing_add(self.x).0;
+                    addr = addr.wrapping_add(self.x);
                     addr as Word
                 };
 
@@ -421,7 +421,7 @@ impl CPU {
                     (hi << 8) | lo
                 };
 
-                let addr_y = addr.overflowing_add(self.y as Word).0;
+                let addr_y = addr.wrapping_add(self.y as Word);
                 let page_cross = addr & 0xFF00 != addr_y & 0xFF00;
                 let value = mem.read(addr_y);
 
@@ -439,7 +439,7 @@ impl CPU {
                     offset = offset | 0xFF00;
                 }
 
-                let addr = self.pc.overflowing_add(offset).0;
+                let addr = self.pc.wrapping_add(offset);
                 let page_cross = self.pc & 0xFF00 != addr & 0xFF00;
                 let value = mem.read(addr);
 
@@ -558,40 +558,40 @@ impl CPU {
 
     fn inc(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
         let f = self.fetch(mem, mode);
-        let data = f.value.overflowing_add(1).0;
+        let data = f.value.wrapping_add(1);
         mem.write(f.addr, data);
         self.set_zn(data);
         cycles
     }
 
     fn inx(&mut self, cycles: u8) -> u8 {
-        self.x = self.x.overflowing_add(1).0;
+        self.x = self.x.wrapping_add(1);
         self.set_zn(self.x);
         cycles
     }
 
     fn iny(&mut self, cycles: u8) -> u8 {
-        self.y = self.y.overflowing_add(1).0;
+        self.y = self.y.wrapping_add(1);
         self.set_zn(self.y);
         cycles
     }
 
     fn dec(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
         let f = self.fetch(mem, mode);
-        let data = f.value.overflowing_sub(1).0;
+        let data = f.value.wrapping_sub(1);
         mem.write(f.addr, data);
         self.set_zn(data);
         cycles
     }
 
     fn dex(&mut self, cycles: u8) -> u8 {
-        self.x = self.x.overflowing_sub(1).0;
+        self.x = self.x.wrapping_sub(1);
         self.set_zn(self.x);
         cycles
     }
 
     fn dey(&mut self, cycles: u8) -> u8 {
-        self.y = self.y.overflowing_sub(1).0;
+        self.y = self.y.wrapping_sub(1);
         self.set_zn(self.y);
         cycles
     }
@@ -715,7 +715,7 @@ impl CPU {
 
     fn cmp(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
         let f = self.fetch(mem, mode);
-        let r = self.a.overflowing_sub(f.value).0;
+        let r = self.a.wrapping_sub(f.value);
         self.set_flag(FL_NEGATIVE, r & (1 << 7) != 0);
         self.set_flag(FL_CARRY, self.a >= f.value);
         self.set_flag(FL_ZERO, r == 0);
@@ -727,7 +727,7 @@ impl CPU {
 
     fn cpx(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
         let f = self.fetch(mem, mode);
-        let r = self.x.overflowing_sub(f.value).0;
+        let r = self.x.wrapping_sub(f.value);
         self.set_flag(FL_NEGATIVE, r & (1 << 7) != 0);
         self.set_flag(FL_CARRY, self.x >= f.value);
         self.set_flag(FL_ZERO, r == 0);
@@ -739,7 +739,7 @@ impl CPU {
 
     fn cpy(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
         let f = self.fetch(mem, mode);
-        let r = self.y.overflowing_sub(f.value).0;
+        let r = self.y.wrapping_sub(f.value);
         self.set_flag(FL_NEGATIVE, r & (1 << 7) != 0);
         self.set_flag(FL_CARRY, self.y >= f.value);
         self.set_flag(FL_ZERO, r == 0);
