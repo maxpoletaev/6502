@@ -10,10 +10,9 @@ pub struct Oscillator {
 }
 
 impl Oscillator {
-    pub fn with_frequency(freq_mhz: f32) -> Oscillator {
-        let freq = (freq_mhz * MHZ) as u64;
+    pub fn with_frequency(freq: f32) -> Oscillator {
         Oscillator {
-            freq: Duration::from_nanos(freq),
+            freq: Duration::from_nanos((MHZ / freq) as u64),
             start: Instant::now(),
         }
     }
@@ -24,6 +23,7 @@ impl Iterator for Oscillator {
 
     fn next(&mut self) -> Option<Self::Item> {
         while self.start.elapsed() < self.freq {}
+        self.start = Instant::now();
         Some(())
     }
 }
