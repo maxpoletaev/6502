@@ -1586,3 +1586,95 @@ mod bit_test {
         t.assert_flag_set(FL_NEGATIVE);
     });
 }
+
+mod asl_test {
+    use super::*;
+
+    opcode_test!(asl_acc, |mut t: OpcodeTest| {
+        t.cpu.a = 0b1000_1111;
+
+        t.exec(OP_ASL_ACC, 0);
+        t.assert_cycles(2);
+        t.assert_a(0b0001_1110);
+        t.assert_flag_set(FL_CARRY);
+    });
+
+    opcode_test!(asl_abs, |mut t: OpcodeTest| {
+        t.mem.write(0xABCD, 0b1000_1111);
+
+        t.exec(OP_ASL_ABS, 0xABCD);
+        t.assert_cycles(6);
+        t.assert_mem(0xABCD, 0b0001_1110);
+        t.assert_flag_set(FL_CARRY);
+    });
+}
+
+mod lsr_test {
+    use super::*;
+
+    opcode_test!(lsr_acc, |mut t: OpcodeTest| {
+        t.cpu.a = 0b1000_1111;
+
+        t.exec(OP_LSR_ACC, 0);
+        t.assert_cycles(2);
+        t.assert_a(0b0100_0111);
+        t.assert_flag_set(FL_CARRY);
+    });
+
+    opcode_test!(lsr_abs, |mut t: OpcodeTest| {
+        t.mem.write(0xABCD, 0b1000_1111);
+
+        t.exec(OP_LSR_ABS, 0xABCD);
+        t.assert_cycles(6);
+        t.assert_mem(0xABCD, 0b0100_0111);
+        t.assert_flag_set(FL_CARRY);
+    });
+}
+
+mod rol_test {
+    use super::*;
+
+    opcode_test!(rol_acc, |mut t: OpcodeTest| {
+        t.cpu.a = 0b0000_0001;
+        t.cpu.set_flag(FL_CARRY, true);
+
+        t.exec(OP_ROL_ACC, 0);
+        t.assert_cycles(2);
+        t.assert_a(0b0000_0011);
+        t.assert_flag_unset(FL_CARRY);
+    });
+
+    opcode_test!(rol_abs, |mut t: OpcodeTest| {
+        t.mem.write(0xABCD, 0b0000_0001);
+        t.cpu.set_flag(FL_CARRY, true);
+
+        t.exec(OP_ROL_ABS, 0xABCD);
+        t.assert_cycles(6);
+        t.assert_mem(0xABCD, 0b0000_0011);
+        t.assert_flag_unset(FL_CARRY);
+    });
+}
+
+mod ror_test {
+    use super::*;
+
+    opcode_test!(ror_acc, |mut t: OpcodeTest| {
+        t.cpu.a = 0b1000_0000;
+        t.cpu.set_flag(FL_CARRY, true);
+
+        t.exec(OP_ROR_ACC, 0);
+        t.assert_cycles(2);
+        t.assert_a(0b1100_0000);
+        t.assert_flag_unset(FL_CARRY);
+    });
+
+    opcode_test!(ror_abs, |mut t: OpcodeTest| {
+        t.mem.write(0xABCD, 0b1000_0000);
+        t.cpu.set_flag(FL_CARRY, true);
+
+        t.exec(OP_ROR_ABS, 0xABCD);
+        t.assert_cycles(6);
+        t.assert_mem(0xABCD, 0b1100_0000);
+        t.assert_flag_unset(FL_CARRY);
+    });
+}

@@ -11,8 +11,9 @@ const FL_UNUSED: Flag = 1 << 5;
 const FL_OVERFLOW: Flag = 1 << 6;
 const FL_NEGATIVE: Flag = 1 << 7;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum AddrMode {
+    Acc,
     Imm,
     Zp,
     ZpX,
@@ -211,6 +212,30 @@ impl CPU {
             OP_EOR_ABY => self.eor(mem, AddrMode::AbsY, 4),
             OP_EOR_IDX => self.eor(mem, AddrMode::IndX, 6),
             OP_EOR_IDY => self.eor(mem, AddrMode::IndY, 5),
+
+            OP_ASL_ACC => self.asl(mem, AddrMode::Acc, 2),
+            OP_ASL_ZP0 => self.asl(mem, AddrMode::Zp, 5),
+            OP_ASL_ZPX => self.asl(mem, AddrMode::ZpX, 6),
+            OP_ASL_ABS => self.asl(mem, AddrMode::Abs, 6),
+            OP_ASL_ABX => self.asl(mem, AddrMode::AbsX, 7),
+
+            OP_LSR_ACC => self.lsr(mem, AddrMode::Acc, 2),
+            OP_LSR_ZP0 => self.lsr(mem, AddrMode::Zp, 5),
+            OP_LSR_ZPX => self.lsr(mem, AddrMode::ZpX, 6),
+            OP_LSR_ABS => self.lsr(mem, AddrMode::Abs, 6),
+            OP_LSR_ABX => self.lsr(mem, AddrMode::AbsX, 7),
+
+            OP_ROL_ACC => self.rol(mem, AddrMode::Acc, 2),
+            OP_ROL_ZP0 => self.rol(mem, AddrMode::Zp, 5),
+            OP_ROL_ZPX => self.rol(mem, AddrMode::ZpX, 6),
+            OP_ROL_ABS => self.rol(mem, AddrMode::Abs, 6),
+            OP_ROL_ABX => self.rol(mem, AddrMode::AbsX, 7),
+
+            OP_ROR_ACC => self.ror(mem, AddrMode::Acc, 2),
+            OP_ROR_ZP0 => self.ror(mem, AddrMode::Zp, 5),
+            OP_ROR_ZPX => self.ror(mem, AddrMode::ZpX, 6),
+            OP_ROR_ABS => self.ror(mem, AddrMode::Abs, 6),
+            OP_ROR_ABX => self.ror(mem, AddrMode::AbsX, 7),
 
             OP_NOP => self.nop(/*mem, AddrMode::Imp,*/ 2),
 
@@ -424,6 +449,11 @@ impl CPU {
                     page_cross,
                 }
             }
+            AddrMode::Acc => Operand {
+                addr: 0x00,
+                value: self.a,
+                page_cross: false,
+            },
         }
     }
 
@@ -801,6 +831,70 @@ impl CPU {
         self.set_flag(FL_ZERO, result == 0);
         self.set_flag(FL_OVERFLOW, result & (1 << 6) != 0);
         self.set_flag(FL_NEGATIVE, result & (1 << 7) != 0);
+        cycles
+    }
+
+    fn asl(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode.clone());
+
+        let result = f.value << 1;
+        self.set_flag(FL_NEGATIVE, result & (1 << 7) != 0);
+        self.set_flag(FL_CARRY, f.value & (1 << 7) != 0);
+        self.set_flag(FL_ZERO, result == 0);
+
+        match mode {
+            AddrMode::Acc => self.a = result,
+            _ => mem.write(f.addr, result),
+        }
+
+        cycles
+    }
+
+    fn lsr(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode.clone());
+
+        let result = f.value >> 1;
+        self.set_flag(FL_NEGATIVE, result & (1 << 7) != 0);
+        self.set_flag(FL_CARRY, f.value & 1 != 0);
+        self.set_flag(FL_ZERO, result == 0);
+
+        match mode {
+            AddrMode::Acc => self.a = result,
+            _ => mem.write(f.addr, result),
+        }
+
+        cycles
+    }
+
+    fn rol(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode.clone());
+
+        let result = (f.value << 1) | self.read_flag(FL_CARRY) as Byte;
+        self.set_flag(FL_NEGATIVE, result & (1 << 7) != 0);
+        self.set_flag(FL_CARRY, f.value & (1 << 7) != 0);
+        self.set_flag(FL_ZERO, result == 0);
+
+        match mode {
+            AddrMode::Acc => self.a = result,
+            _ => mem.write(f.addr, result),
+        }
+
+        cycles
+    }
+
+    fn ror(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode.clone());
+
+        let result = (f.value >> 1) | (self.read_flag(FL_CARRY) as Byte) << 7;
+        self.set_flag(FL_NEGATIVE, result & (1 << 7) != 0);
+        self.set_flag(FL_CARRY, f.value & 1 != 0);
+        self.set_flag(FL_ZERO, result == 0);
+
+        match mode {
+            AddrMode::Acc => self.a = result,
+            _ => mem.write(f.addr, result),
+        }
+
         cycles
     }
 

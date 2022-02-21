@@ -212,3 +212,31 @@ pub const OP_ORA_IDY: Byte = 0x11;
 // BIT - Test Bits in Memory with Accumulator
 pub const OP_BIT_ZP0: Byte = 0x24;
 pub const OP_BIT_ABS: Byte = 0x2C;
+
+// ASL - Arithmetic Shift Left
+pub const OP_ASL_ACC: Byte = 0x0A;
+pub const OP_ASL_ZP0: Byte = 0x06;
+pub const OP_ASL_ZPX: Byte = 0x16;
+pub const OP_ASL_ABS: Byte = 0x0E;
+pub const OP_ASL_ABX: Byte = 0x1E;
+
+// LSR - Logical Shift Right
+pub const OP_LSR_ACC: Byte = 0x4A;
+pub const OP_LSR_ZP0: Byte = 0x46;
+pub const OP_LSR_ZPX: Byte = 0x56;
+pub const OP_LSR_ABS: Byte = 0x4E;
+pub const OP_LSR_ABX: Byte = 0x5E;
+
+// ROL - Rotate Left
+pub const OP_ROL_ACC: Byte = 0x2A;
+pub const OP_ROL_ZP0: Byte = 0x26;
+pub const OP_ROL_ZPX: Byte = 0x36;
+pub const OP_ROL_ABS: Byte = 0x2E;
+pub const OP_ROL_ABX: Byte = 0x3E;
+
+// ROR - Rotate Right
+pub const OP_ROR_ACC: Byte = 0x6A;
+pub const OP_ROR_ZP0: Byte = 0x66;
+pub const OP_ROR_ZPX: Byte = 0x76;
+pub const OP_ROR_ABS: Byte = 0x6E;
+pub const OP_ROR_ABX: Byte = 0x7E;
