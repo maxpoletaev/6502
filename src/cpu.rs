@@ -122,9 +122,15 @@ impl CPU {
             OP_INC_ZPX => self.inc(mem, AddrMode::ZpX, 6),
             OP_INC_ABS => self.inc(mem, AddrMode::Abs, 6),
             OP_INC_ABX => self.inc(mem, AddrMode::AbsX, 7),
-
             OP_INX_IMP => self.inx(/*mem, AddrMode::Imp,*/ 2),
             OP_INY_IMP => self.iny(/*mem, AddrMode::Imp,*/ 2),
+
+            OP_DEC_ZP0 => self.dec(mem, AddrMode::Zp, 5),
+            OP_DEC_ZPX => self.dec(mem, AddrMode::ZpX, 6),
+            OP_DEC_ABS => self.dec(mem, AddrMode::Abs, 6),
+            OP_DEC_ABX => self.dec(mem, AddrMode::AbsX, 7),
+            OP_DEX_IMP => self.dex(/*mem, AddrMode::Imp,*/ 2),
+            OP_DEY_IMP => self.dey(/*mem, AddrMode::Imp,*/ 2),
 
             OP_JMP_ABS => self.jmp(mem, AddrMode::Abs, 3),
             OP_JMP_IND => self.jmp(mem, AddrMode::Ind, 5),
@@ -158,6 +164,11 @@ impl CPU {
             OP_CPY_ABS => self.cpy(mem, AddrMode::Abs, 4),
 
             OP_CLC_IMP => self.clc(/*mem, AddrMode::Imp,*/ 2),
+            OP_CLI_IMP => self.cli(/*mem, AddrMode::Imp,*/ 2),
+            OP_CLV_IMP => self.clv(/*mem, AddrMode::Imp,*/ 2),
+
+            OP_SEC_IMP => self.sec(/*mem, AddrMode::Imp,*/ 2),
+            OP_SEI_IMP => self.sei(/*mem, AddrMode::Imp,*/ 2),
 
             OP_TAX_IMP => self.tax(/*mem, AddrMode::Imp,*/ 2),
             OP_TXA_IMP => self.txa(/*mem, AddrMode::Imp,*/ 2),
@@ -170,6 +181,36 @@ impl CPU {
             OP_PHP_IMP => self.php(mem, /*AddrMode::Imp,*/ 3),
             OP_PLA_IMP => self.pla(mem, /*AddrMode::Imp,*/ 4),
             OP_PLP_IMP => self.plp(mem, /*AddrMode::Imp,*/ 4),
+
+            OP_AND_IMM => self.and(mem, AddrMode::Imm, 2),
+            OP_AND_ZP0 => self.and(mem, AddrMode::Zp, 3),
+            OP_AND_ZPX => self.and(mem, AddrMode::ZpX, 4),
+            OP_AND_ABS => self.and(mem, AddrMode::Abs, 4),
+            OP_AND_ABX => self.and(mem, AddrMode::AbsX, 4),
+            OP_AND_ABY => self.and(mem, AddrMode::AbsY, 4),
+            OP_AND_IDX => self.and(mem, AddrMode::IndX, 6),
+            OP_AND_IDY => self.and(mem, AddrMode::IndY, 5),
+
+            OP_ORA_IMM => self.ora(mem, AddrMode::Imm, 2),
+            OP_ORA_ZP0 => self.ora(mem, AddrMode::Zp, 3),
+            OP_ORA_ZPX => self.ora(mem, AddrMode::ZpX, 4),
+            OP_ORA_ABS => self.ora(mem, AddrMode::Abs, 4),
+            OP_ORA_ABX => self.ora(mem, AddrMode::AbsX, 4),
+            OP_ORA_ABY => self.ora(mem, AddrMode::AbsY, 4),
+            OP_ORA_IDX => self.ora(mem, AddrMode::IndX, 6),
+            OP_ORA_IDY => self.ora(mem, AddrMode::IndY, 5),
+
+            OP_BIT_ZP0 => self.bit(mem, AddrMode::Zp, 3),
+            OP_BIT_ABS => self.bit(mem, AddrMode::Abs, 4),
+
+            OP_EOR_IMM => self.eor(mem, AddrMode::Imm, 2),
+            OP_EOR_ZP0 => self.eor(mem, AddrMode::Zp, 3),
+            OP_EOR_ZPX => self.eor(mem, AddrMode::ZpX, 4),
+            OP_EOR_ABS => self.eor(mem, AddrMode::Abs, 4),
+            OP_EOR_ABX => self.eor(mem, AddrMode::AbsX, 4),
+            OP_EOR_ABY => self.eor(mem, AddrMode::AbsY, 4),
+            OP_EOR_IDX => self.eor(mem, AddrMode::IndX, 6),
+            OP_EOR_IDY => self.eor(mem, AddrMode::IndY, 5),
 
             OP_NOP => self.nop(/*mem, AddrMode::Imp,*/ 2),
 
@@ -395,6 +436,26 @@ impl CPU {
         cycles
     }
 
+    fn cli(&mut self, cycles: u8) -> u8 {
+        self.set_flag(FL_NO_INTERRUPT, false);
+        cycles
+    }
+
+    fn clv(&mut self, cycles: u8) -> u8 {
+        self.set_flag(FL_OVERFLOW, false);
+        cycles
+    }
+
+    fn sec(&mut self, cycles: u8) -> u8 {
+        self.set_flag(FL_CARRY, true);
+        cycles
+    }
+
+    fn sei(&mut self, cycles: u8) -> u8 {
+        self.set_flag(FL_NO_INTERRUPT, true);
+        cycles
+    }
+
     fn adc(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
         let f = self.fetch(mem, mode);
 
@@ -481,6 +542,26 @@ impl CPU {
 
     fn iny(&mut self, cycles: u8) -> u8 {
         self.y = self.y.overflowing_add(1).0;
+        self.set_zn(self.y);
+        cycles
+    }
+
+    fn dec(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+        let data = f.value.overflowing_sub(1).0;
+        mem.write(f.addr, data);
+        self.set_zn(data);
+        cycles
+    }
+
+    fn dex(&mut self, cycles: u8) -> u8 {
+        self.x = self.x.overflowing_sub(1).0;
+        self.set_zn(self.x);
+        cycles
+    }
+
+    fn dey(&mut self, cycles: u8) -> u8 {
+        self.y = self.y.overflowing_sub(1).0;
         self.set_zn(self.y);
         cycles
     }
@@ -690,6 +771,36 @@ impl CPU {
 
     fn plp(&mut self, mem: &mut dyn Memory, cycles: u8) -> u8 {
         self.p = self.stack_pop(mem);
+        cycles
+    }
+
+    fn and(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+        self.a = self.a & f.value;
+        self.set_zn(self.a);
+        cycles
+    }
+
+    fn eor(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+        self.a = self.a ^ f.value;
+        self.set_zn(self.a);
+        cycles
+    }
+
+    fn ora(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+        self.a = self.a | f.value;
+        self.set_zn(self.a);
+        cycles
+    }
+
+    fn bit(&mut self, mem: &mut dyn Memory, mode: AddrMode, cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+        let result = f.value & self.a;
+        self.set_flag(FL_ZERO, result == 0);
+        self.set_flag(FL_OVERFLOW, result & (1 << 6) != 0);
+        self.set_flag(FL_NEGATIVE, result & (1 << 7) != 0);
         cycles
     }
 

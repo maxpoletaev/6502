@@ -68,6 +68,18 @@ pub const OP_INX_IMP: Byte = 0xE8;
 // INY - Increment Y Register
 pub const OP_INY_IMP: Byte = 0xC8;
 
+// DEC - Decrement Memory
+pub const OP_DEC_ZP0: Byte = 0xC6;
+pub const OP_DEC_ZPX: Byte = 0xD6;
+pub const OP_DEC_ABS: Byte = 0xCE;
+pub const OP_DEC_ABX: Byte = 0xDE;
+
+// DEX - Decrement X Register
+pub const OP_DEX_IMP: Byte = 0xCA;
+
+// DEY - Decrement Y Register
+pub const OP_DEY_IMP: Byte = 0x88;
+
 // ADC - Add with Carry
 pub const OP_ADC_IMM: Byte = 0x69;
 pub const OP_ADC_ZP0: Byte = 0x65;
@@ -80,6 +92,18 @@ pub const OP_ADC_IDY: Byte = 0x71;
 
 // CLC - Clear Carry Flag
 pub const OP_CLC_IMP: Byte = 0x18;
+
+// CLI - Clear Interrupt Disable
+pub const OP_CLI_IMP: Byte = 0x58;
+
+// CLV - Clear Overflow Flag
+pub const OP_CLV_IMP: Byte = 0xB8;
+
+// SEC - Set Carry Flag
+pub const OP_SEC_IMP: Byte = 0x38;
+
+// SEI - Set Interrupt Disable
+pub const OP_SEI_IMP: Byte = 0x78;
 
 // BCC - Branch if Carry Clear
 pub const OP_BCC_REL: Byte = 0x90;
@@ -154,3 +178,37 @@ pub const OP_PLA_IMP: Byte = 0x68;
 
 // PLP - Pull Processor Status
 pub const OP_PLP_IMP: Byte = 0x28;
+
+// AND - Logical AND
+pub const OP_AND_IMM: Byte = 0x29;
+pub const OP_AND_ZP0: Byte = 0x25;
+pub const OP_AND_ZPX: Byte = 0x35;
+pub const OP_AND_ABS: Byte = 0x2D;
+pub const OP_AND_ABX: Byte = 0x3D;
+pub const OP_AND_ABY: Byte = 0x39;
+pub const OP_AND_IDX: Byte = 0x21;
+pub const OP_AND_IDY: Byte = 0x31;
+
+// EOR - Exclusive OR
+pub const OP_EOR_IMM: Byte = 0x49;
+pub const OP_EOR_ZP0: Byte = 0x45;
+pub const OP_EOR_ZPX: Byte = 0x55;
+pub const OP_EOR_ABS: Byte = 0x4D;
+pub const OP_EOR_ABX: Byte = 0x5D;
+pub const OP_EOR_ABY: Byte = 0x59;
+pub const OP_EOR_IDX: Byte = 0x41;
+pub const OP_EOR_IDY: Byte = 0x51;
+
+// ORA - Logical Inclusive OR
+pub const OP_ORA_IMM: Byte = 0x09;
+pub const OP_ORA_ZP0: Byte = 0x05;
+pub const OP_ORA_ZPX: Byte = 0x15;
+pub const OP_ORA_ABS: Byte = 0x0D;
+pub const OP_ORA_ABX: Byte = 0x1D;
+pub const OP_ORA_ABY: Byte = 0x19;
+pub const OP_ORA_IDX: Byte = 0x01;
+pub const OP_ORA_IDY: Byte = 0x11;
+
+// BIT - Test Bits in Memory with Accumulator
+pub const OP_BIT_ZP0: Byte = 0x24;
+pub const OP_BIT_ABS: Byte = 0x2C;

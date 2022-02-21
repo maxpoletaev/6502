@@ -618,6 +618,74 @@ mod iny_test {
     }
 }
 
+mod dec_test {
+    use super::*;
+
+    opcode_test!(dec_zp, |mut t: OpcodeTest| {
+        t.mem.write(0x00AA, 0x05);
+
+        t.exec(OP_DEC_ZP0, 0xAA);
+        t.assert_cycles(5);
+        t.assert_mem(0xAA, 0x04);
+        t.assert_zn(0x04);
+    });
+
+    opcode_test!(dec_zpx, |mut t: OpcodeTest| {
+        t.cpu.x = 0x01;
+        t.mem.write(0x00AA, 0x05);
+
+        t.exec(OP_DEC_ZPX, 0xA9);
+        t.assert_cycles(6);
+        t.assert_mem(0xAA, 0x04);
+        t.assert_zn(0x04);
+    });
+
+    opcode_test!(dec_abs, |mut t: OpcodeTest| {
+        t.mem.write(0xAABB, 0x05);
+
+        t.exec(OP_DEC_ABS, 0xAABB);
+        t.assert_cycles(6);
+        t.assert_mem(0xAABB, 0x04);
+        t.assert_zn(0x04);
+    });
+
+    opcode_test!(dec_abx, |mut t: OpcodeTest| {
+        t.cpu.x = 0x01;
+        t.mem.write(0xAABB, 0x05);
+
+        t.exec(OP_DEC_ABX, 0xAABA);
+        t.assert_cycles(7);
+        t.assert_mem(0xAABB, 0x04);
+        t.assert_zn(0x04);
+    });
+}
+
+mod dex_test {
+    use super::*;
+
+    opcode_test!(dex_imp, |mut t: OpcodeTest| {
+        t.cpu.x = 0x05;
+
+        t.exec(OP_DEX_IMP, 0x00);
+        t.assert_cycles(2);
+        t.assert_x(0x04);
+        t.assert_zn(0x04);
+    });
+}
+
+mod dey_test {
+    use super::*;
+
+    opcode_test!(dex_imp, |mut t: OpcodeTest| {
+        t.cpu.y = 0x05;
+
+        t.exec(OP_DEY_IMP, 0x00);
+        t.assert_cycles(2);
+        t.assert_y(0x04);
+        t.assert_zn(0x04);
+    });
+}
+
 mod jmp_test {
     use super::*;
 
@@ -902,19 +970,56 @@ mod adc_test {
 mod clc_test {
     use super::*;
 
-    #[test]
-    fn clc_imp() {
-        let (mut cpu, mut mem) = setup();
+    opcode_test!(clc_imp, |mut t: OpcodeTest| {
+        t.cpu.set_flag(FL_CARRY, true);
+        t.exec(OP_CLC_IMP, 0);
+        t.assert_cycles(2);
+        t.assert_flag_unset(FL_CARRY);
+    });
+}
 
-        cpu.set_flag(FL_CARRY, true);
-        assert!(cpu.read_flag(FL_CARRY));
+mod cli_test {
+    use super::*;
 
-        mem.write(0xFF00, OP_CLC_IMP);
+    opcode_test!(cli_imp, |mut t: OpcodeTest| {
+        t.cpu.set_flag(FL_NO_INTERRUPT, true);
+        t.exec(OP_CLI_IMP, 0);
+        t.assert_cycles(2);
+        t.assert_flag_unset(FL_NO_INTERRUPT);
+    });
+}
 
-        cpu.tick(&mut mem);
-        assert_eq!(2, cpu.cycles);
-        assert!(!cpu.read_flag(FL_CARRY));
-    }
+mod clv_test {
+    use super::*;
+
+    opcode_test!(clv_imp, |mut t: OpcodeTest| {
+        t.cpu.set_flag(FL_OVERFLOW, true);
+        t.exec(OP_CLV_IMP, 0);
+        t.assert_cycles(2);
+        t.assert_flag_unset(FL_OVERFLOW);
+    });
+}
+
+mod sec_test {
+    use super::*;
+
+    opcode_test!(sec_imp, |mut t: OpcodeTest| {
+        t.cpu.set_flag(FL_CARRY, false);
+        t.exec(OP_SEC_IMP, 0);
+        t.assert_cycles(2);
+        t.assert_flag_set(FL_CARRY);
+    });
+}
+
+mod sei_test {
+    use super::*;
+
+    opcode_test!(sei_imp, |mut t: OpcodeTest| {
+        t.cpu.set_flag(FL_NO_INTERRUPT, false);
+        t.exec(OP_SEI_IMP, 0);
+        t.assert_cycles(2);
+        t.assert_flag_set(FL_NO_INTERRUPT);
+    });
 }
 
 mod bcc_test {
@@ -1406,5 +1511,78 @@ mod plp_test {
         t.assert_cycles(4);
         t.assert_sp(0xFF);
         t.assert_p(0xFF);
+    });
+}
+
+mod and_test {
+    use super::*;
+
+    opcode_test!(and_imm, |mut t: OpcodeTest| {
+        t.cpu.a = 0b0000_1111;
+
+        t.exec(OP_AND_IMM, 0b0011_1100);
+        t.assert_cycles(2);
+        t.assert_a(0b0000_1100);
+        t.assert_zn(0b0000_1100);
+    });
+}
+
+mod eor_test {
+    use super::*;
+
+    opcode_test!(eor_imm, |mut t: OpcodeTest| {
+        t.cpu.a = 0b0000_1111;
+
+        t.exec(OP_EOR_IMM, 0b0011_1100);
+        t.assert_cycles(2);
+        t.assert_a(0b0011_0011);
+        t.assert_zn(0b0011_0011);
+    });
+}
+
+mod ora_test {
+    use super::*;
+
+    opcode_test!(ora_imm, |mut t: OpcodeTest| {
+        t.cpu.a = 0b0000_1111;
+
+        t.exec(OP_ORA_IMM, 0b0011_1100);
+        t.assert_cycles(2);
+        t.assert_a(0b0011_1111);
+        t.assert_zn(0b0011_1111);
+    });
+}
+
+mod bit_test {
+    use super::*;
+
+    opcode_test!(bit_zero, |mut t: OpcodeTest| {
+        t.cpu.a = 0b0000_0000;
+        t.mem.write(0x00AA, 0b0000_0000);
+
+        t.exec(OP_BIT_ZP0, 0xAA);
+        t.assert_flag_set(FL_ZERO);
+        t.assert_flag_unset(FL_OVERFLOW);
+        t.assert_flag_unset(FL_NEGATIVE);
+    });
+
+    opcode_test!(bit_6_is_set, |mut t: OpcodeTest| {
+        t.cpu.a = 0b0100_0000;
+        t.mem.write(0x00AA, 0b0100_0000);
+
+        t.exec(OP_BIT_ZP0, 0xAA);
+        t.assert_flag_unset(FL_ZERO);
+        t.assert_flag_set(FL_OVERFLOW);
+        t.assert_flag_unset(FL_NEGATIVE);
+    });
+
+    opcode_test!(bit_7_is_set, |mut t: OpcodeTest| {
+        t.cpu.a = 0b1000_0000;
+        t.mem.write(0x00AA, 0b1000_0000);
+
+        t.exec(OP_BIT_ZP0, 0xAA);
+        t.assert_flag_unset(FL_ZERO);
+        t.assert_flag_unset(FL_OVERFLOW);
+        t.assert_flag_set(FL_NEGATIVE);
     });
 }
