@@ -938,7 +938,6 @@ mod bcc_test {
 
     opcode_test!(true_negative, |mut t: OpcodeTest| {
         t.cpu.set_flag(FL_CARRY, false);
-        t.cpu.set_flag(FL_NEGATIVE, true);
 
         t.exec(OP_BCC_REL, -4_i8 as Word);
         t.assert_cycles(6);
@@ -967,7 +966,6 @@ mod bcs_test {
 
     opcode_test!(true_negative, |mut t: OpcodeTest| {
         t.cpu.set_flag(FL_CARRY, true);
-        t.cpu.set_flag(FL_NEGATIVE, true);
 
         t.exec(OP_BCS_REL, -4_i8 as Word);
         t.assert_cycles(6);
@@ -996,7 +994,6 @@ mod beq_test {
 
     opcode_test!(true_negative, |mut t: OpcodeTest| {
         t.cpu.set_flag(FL_ZERO, true);
-        t.cpu.set_flag(FL_NEGATIVE, true);
 
         t.exec(OP_BEQ_REL, -4_i8 as Word);
         t.assert_cycles(6);
@@ -1025,9 +1022,120 @@ mod bne_test {
 
     opcode_test!(true_negative, |mut t: OpcodeTest| {
         t.cpu.set_flag(FL_ZERO, false);
-        t.cpu.set_flag(FL_NEGATIVE, true);
 
         t.exec(OP_BNE_REL, -4_i8 as Word);
+        t.assert_cycles(6);
+        t.assert_pc(0xFEFE);
+    });
+}
+
+mod bmi_test {
+    use super::*;
+
+    opcode_test!(false_, |mut t: OpcodeTest| {
+        t.cpu.set_flag(FL_NEGATIVE, false);
+
+        t.exec(OP_BMI_REL, 4);
+        t.assert_cycles(2);
+        t.assert_pc(0xFF02);
+    });
+
+    opcode_test!(true_positive, |mut t: OpcodeTest| {
+        t.cpu.set_flag(FL_NEGATIVE, true);
+
+        t.exec(OP_BMI_REL, 4);
+        t.assert_cycles(4);
+        t.assert_pc(0xFF06);
+    });
+
+    opcode_test!(true_negative, |mut t: OpcodeTest| {
+        t.cpu.set_flag(FL_NEGATIVE, true);
+
+        t.exec(OP_BMI_REL, -4_i8 as Word);
+        t.assert_cycles(6);
+        t.assert_pc(0xFEFE);
+    });
+}
+
+mod bpl_test {
+    use super::*;
+
+    opcode_test!(false_, |mut t: OpcodeTest| {
+        t.cpu.set_flag(FL_NEGATIVE, true);
+
+        t.exec(OP_BPL_REL, 4);
+        t.assert_cycles(2);
+        t.assert_pc(0xFF02);
+    });
+
+    opcode_test!(true_positive, |mut t: OpcodeTest| {
+        t.cpu.set_flag(FL_NEGATIVE, false);
+
+        t.exec(OP_BPL_REL, 4);
+        t.assert_cycles(4);
+        t.assert_pc(0xFF06);
+    });
+
+    opcode_test!(true_negative, |mut t: OpcodeTest| {
+        t.cpu.set_flag(FL_NEGATIVE, false);
+
+        t.exec(OP_BPL_REL, -4_i8 as Word);
+        t.assert_cycles(6);
+        t.assert_pc(0xFEFE);
+    });
+}
+
+mod bvc_test {
+    use super::*;
+
+    opcode_test!(false_, |mut t: OpcodeTest| {
+        t.cpu.set_flag(FL_OVERFLOW, true);
+
+        t.exec(OP_BVC_REL, 4);
+        t.assert_cycles(2);
+        t.assert_pc(0xFF02);
+    });
+
+    opcode_test!(true_positive, |mut t: OpcodeTest| {
+        t.cpu.set_flag(FL_OVERFLOW, false);
+
+        t.exec(OP_BVC_REL, 4);
+        t.assert_cycles(4);
+        t.assert_pc(0xFF06);
+    });
+
+    opcode_test!(true_negative, |mut t: OpcodeTest| {
+        t.cpu.set_flag(FL_OVERFLOW, false);
+
+        t.exec(OP_BVC_REL, -4_i8 as Word);
+        t.assert_cycles(6);
+        t.assert_pc(0xFEFE);
+    });
+}
+
+mod bvs_test {
+    use super::*;
+
+    opcode_test!(false_, |mut t: OpcodeTest| {
+        t.cpu.set_flag(FL_OVERFLOW, false);
+
+        t.exec(OP_BVS_REL, 4);
+        t.assert_cycles(2);
+        t.assert_pc(0xFF02);
+    });
+
+    opcode_test!(true_positive, |mut t: OpcodeTest| {
+        t.cpu.set_flag(FL_OVERFLOW, true);
+
+        t.exec(OP_BVS_REL, 4);
+        t.assert_cycles(4);
+        t.assert_pc(0xFF06);
+    });
+
+    opcode_test!(true_negative, |mut t: OpcodeTest| {
+        t.cpu.set_flag(FL_OVERFLOW, true);
+
+        t.exec(OP_BVS_REL, -4_i8 as Word);
         t.assert_cycles(6);
         t.assert_pc(0xFEFE);
     });

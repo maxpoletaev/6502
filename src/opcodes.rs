@@ -93,6 +93,18 @@ pub const OP_BEQ_REL: Byte = 0xF0;
 // BNE - Branch if Not Equal
 pub const OP_BNE_REL: Byte = 0xD0;
 
+// BMI - Branch if Minus
+pub const OP_BMI_REL: Byte = 0x30;
+
+// BPL - Branch if Positive
+pub const OP_BPL_REL: Byte = 0x10;
+
+// BVC - Branch if Overflow Clear
+pub const OP_BVC_REL: Byte = 0x50;
+
+// BVS - Branch if Overflow Set
+pub const OP_BVS_REL: Byte = 0x70;
+
 // TAX - Transfer Accumulator to X
 pub const OP_TAX_IMP: Byte = 0xAA;
 

@@ -135,6 +135,10 @@ impl CPU {
             OP_BCS_REL => self.bcs(mem, AddrMode::Rel, 2),
             OP_BEQ_REL => self.beq(mem, AddrMode::Rel, 2),
             OP_BNE_REL => self.bne(mem, AddrMode::Rel, 2),
+            OP_BMI_REL => self.bmi(mem, AddrMode::Rel, 2),
+            OP_BPL_REL => self.bpl(mem, AddrMode::Rel, 2),
+            OP_BVC_REL => self.bvc(mem, AddrMode::Rel, 2),
+            OP_BVS_REL => self.bvs(mem, AddrMode::Rel, 2),
 
             OP_CMP_IMM => self.cmp(mem, AddrMode::Imm, 2),
             OP_CMP_ZP0 => self.cmp(mem, AddrMode::Zp, 3),
@@ -533,6 +537,54 @@ impl CPU {
     fn bne(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
         let f = self.fetch(mem, mode);
         if !self.read_flag(FL_ZERO) {
+            cycles += 2;
+            if f.page_cross {
+                cycles += 2;
+            }
+            self.pc = f.addr;
+        }
+        cycles
+    }
+
+    fn bmi(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+        if self.read_flag(FL_NEGATIVE) {
+            cycles += 2;
+            if f.page_cross {
+                cycles += 2;
+            }
+            self.pc = f.addr;
+        }
+        cycles
+    }
+
+    fn bpl(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+        if !self.read_flag(FL_NEGATIVE) {
+            cycles += 2;
+            if f.page_cross {
+                cycles += 2;
+            }
+            self.pc = f.addr;
+        }
+        cycles
+    }
+
+    fn bvc(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+        if !self.read_flag(FL_OVERFLOW) {
+            cycles += 2;
+            if f.page_cross {
+                cycles += 2;
+            }
+            self.pc = f.addr;
+        }
+        cycles
+    }
+
+    fn bvs(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+        if self.read_flag(FL_OVERFLOW) {
             cycles += 2;
             if f.page_cross {
                 cycles += 2;
