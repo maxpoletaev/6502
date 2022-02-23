@@ -10,12 +10,15 @@ loop:
     bne loop
 
     jsr flush
-    brk
+    jmp halt
 
 flush:
     lda #$0A      ;newline
     sta out+$ff   ;writing to $02ff triggers the output
     rts
+
+halt:
+    jmp halt
 
 msg: .asc  "Hello, 6502!"
 len: .byte 12

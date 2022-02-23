@@ -16,14 +16,18 @@ impl Oscillator {
             start: Instant::now(),
         }
     }
+
+    pub fn tick(&mut self) {
+        while self.start.elapsed() < self.freq {}
+        self.start = Instant::now();
+    }
 }
 
 impl Iterator for Oscillator {
     type Item = ();
 
     fn next(&mut self) -> Option<Self::Item> {
-        while self.start.elapsed() < self.freq {}
-        self.start = Instant::now();
+        self.tick();
         Some(())
     }
 }
