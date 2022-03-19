@@ -967,6 +967,30 @@ mod adc_test {
     }
 }
 
+mod sbc_test {
+    use super::*;
+
+    opcode_test!(sbc_imm, |mut t: OpcodeTest| {
+        t.cpu.a = 0x02;
+        t.exec(OP_SBC_IMM, 0x01);
+        t.assert_cycles(2);
+        t.assert_a(0x01);
+        t.assert_zn(t.cpu.a);
+        t.assert_flag_set(FL_CARRY);
+        t.assert_flag_unset(FL_OVERFLOW);
+    });
+
+    opcode_test!(sbc_imm_carry, |mut t: OpcodeTest| {
+        t.cpu.a = 0x01;
+        t.exec(OP_SBC_IMM, 0x03);
+        t.assert_cycles(2);
+        t.assert_a(0xFE);
+        t.assert_zn(t.cpu.a);
+        t.assert_flag_unset(FL_CARRY);
+        t.assert_flag_set(FL_OVERFLOW);
+    });
+}
+
 mod clc_test {
     use super::*;
 

@@ -82,6 +82,15 @@ impl CPU {
             OP_ADC_IDX => self.adc(mem, AddrMode::IndX, 6),
             OP_ADC_IDY => self.adc(mem, AddrMode::IndY, 5),
 
+            OP_SBC_IMM => self.sbc(mem, AddrMode::Imm, 2),
+            OP_SBC_ZP0 => self.sbc(mem, AddrMode::Zp, 3),
+            OP_SBC_ZPX => self.sbc(mem, AddrMode::ZpX, 4),
+            OP_SBC_ABS => self.sbc(mem, AddrMode::Abs, 4),
+            OP_SBC_ABX => self.sbc(mem, AddrMode::AbsX, 4),
+            OP_SBC_ABY => self.sbc(mem, AddrMode::AbsY, 4),
+            OP_SBC_IDX => self.sbc(mem, AddrMode::IndX, 6),
+            OP_SBC_IDY => self.sbc(mem, AddrMode::IndY, 5),
+
             OP_LDA_IMM => self.lda(mem, AddrMode::Imm, 2),
             OP_LDA_ZP0 => self.lda(mem, AddrMode::Zp, 3),
             OP_LDA_ZPX => self.lda(mem, AddrMode::ZpX, 4),
@@ -491,6 +500,28 @@ impl CPU {
 
         let (new_a, carry) = self.a.overflowing_add(f.value);
         self.set_flag(FL_CARRY, carry);
+
+        // Detecting signed integer overflow:
+        //  1. Check that the initial value of the accumulator and the operand both have the same sign (bit 7);
+        //  2. We can tell that overflow took place if bit 7 is not the same anymore after the operation.
+        let same_sign = (self.a & 1 << 7) ^ (f.value & 1 << 7) == 0;
+        let overflow = same_sign && new_a & 1 << 7 != self.a & 1 << 7;
+        self.set_flag(FL_OVERFLOW, overflow);
+
+        self.a = new_a;
+        self.set_zn(self.a);
+
+        if f.page_cross {
+            cycles += 1;
+        }
+        cycles
+    }
+
+    fn sbc(&mut self, mem: &mut dyn Memory, mode: AddrMode, mut cycles: u8) -> u8 {
+        let f = self.fetch(mem, mode);
+
+        let (new_a, carry) = self.a.overflowing_sub(f.value);
+        self.set_flag(FL_CARRY, !carry);
 
         // Detecting signed integer overflow:
         //  1. Check that the initial value of the accumulator and the operand both have the same sign (bit 7);

@@ -90,6 +90,16 @@ pub const OP_ADC_ABY: Byte = 0x79;
 pub const OP_ADC_IDX: Byte = 0x61;
 pub const OP_ADC_IDY: Byte = 0x71;
 
+// SBC - Subtract with Carry
+pub const OP_SBC_IMM: Byte = 0xE9;
+pub const OP_SBC_ZP0: Byte = 0xE5;
+pub const OP_SBC_ZPX: Byte = 0xF5;
+pub const OP_SBC_ABS: Byte = 0xED;
+pub const OP_SBC_ABX: Byte = 0xFD;
+pub const OP_SBC_ABY: Byte = 0xF9;
+pub const OP_SBC_IDX: Byte = 0xE1;
+pub const OP_SBC_IDY: Byte = 0xF1;
+
 // CLC - Clear Carry Flag
 pub const OP_CLC_IMP: Byte = 0x18;
 
