@@ -2,10 +2,13 @@ use super::*;
 use crate::mem::{Memory, Ram};
 
 fn setup() -> (CPU, Ram) {
-    let mut cpu = CPU::new();
-    cpu.reset(0xFF00);
+    let mut mem = Ram::new();
+    mem.write(0xFFFC, 0x00);
+    mem.write(0xFFFD, 0xFF);
 
-    let mem = Ram::new();
+    let mut cpu = CPU::new();
+    cpu.reset(&mem);
+
     (cpu, mem)
 }
 
@@ -15,23 +18,24 @@ struct OpcodeTest {
 }
 
 impl OpcodeTest {
-    const RESET_VEC: Word = 0xFF00;
-
     fn new() -> Self {
+        let mut mem = Ram::new();
+        mem.write(0xFFFC, 0x00);
+        mem.write(0xFFFD, 0xFF);
+
         let mut cpu = CPU::new();
-        cpu.reset(Self::RESET_VEC);
-        let mem = Ram::new();
+        cpu.reset(&mem);
+
         Self { cpu, mem }
     }
 
     fn exec(&mut self, opcode: Byte, operand: Word) {
-        self.mem.write(Self::RESET_VEC, opcode);
-
         let lsb = operand as Byte;
         let msb = (operand >> 8) as Byte;
 
-        self.mem.write(Self::RESET_VEC + 1, lsb);
-        self.mem.write(Self::RESET_VEC + 2, msb);
+        self.mem.write(0xFF00, opcode);
+        self.mem.write(0xFF01, lsb);
+        self.mem.write(0xFF02, msb);
         self.cpu.tick(&mut self.mem);
     }
 
@@ -63,14 +67,17 @@ impl OpcodeTest {
         assert_eq!(v, self.cpu.p, "P=0b{:08b}, want 0b{:08b}", self.cpu.p, v);
     }
 
-    fn assert_mem(&self, addr: Word, v: Byte) {
+    fn assert_mem(&self, addr: Word, val: Byte) {
+        let actual_val = self.mem.read(addr);
         assert_eq!(
-            v,
+            val,
             self.mem.read(addr),
-            "mem[0x{:04X}]=0x{:02X}, want 0x{:02X}",
+            "mem[0x{:04X}]=0x{:02X} (0b{:08b}), want 0x{:02X} (0b{:08b})",
             addr,
-            self.mem.read(addr),
-            v
+            actual_val,
+            actual_val,
+            val,
+            val,
         );
     }
 
@@ -1700,5 +1707,47 @@ mod ror_test {
         t.assert_cycles(6);
         t.assert_mem(0xABCD, 0b1100_0000);
         t.assert_flag_unset(FL_CARRY);
+    });
+}
+
+mod brk_test {
+    use super::*;
+
+    opcode_test!(brk_imp, |mut t: OpcodeTest| {
+        t.mem.write(0xFFFE, 0xCD);
+        t.mem.write(0xFFFF, 0xAB);
+
+        t.cpu.set_flag(FL_ZERO, true);
+        t.cpu.set_flag(FL_NEGATIVE, true);
+
+        t.exec(OP_BRK, 0);
+        t.assert_cycles(7);
+        t.assert_pc(0xABCD);
+        t.assert_sp(0xFC);
+        t.assert_flag_set(FL_BREAK);
+
+        // return address is on stack
+        t.assert_mem(0x01FF, 0x01);
+        t.assert_mem(0x01FE, 0xFF);
+
+        // status register is on stack
+        t.assert_mem(0x01FD, 0b10100010);
+    });
+}
+
+mod rti_test {
+    use super::*;
+
+    opcode_test!(rti_imp, |mut t: OpcodeTest| {
+        t.mem.write(0x01FF, 0xCD);
+        t.mem.write(0x01FE, 0xAB);
+        t.mem.write(0x01FD, 0b10100010);
+        t.cpu.sp = 0xFC;
+
+        t.exec(OP_RTI, 0);
+        t.assert_sp(0xFF);
+        t.assert_pc(0xABCD);
+        t.assert_flag_set(FL_ZERO);
+        t.assert_flag_set(FL_NEGATIVE);
     });
 }

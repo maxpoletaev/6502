@@ -1,24 +1,30 @@
-;XA65
-out=$0200
+;xa65 assembler
+;compile with xa program.s -o program
 
-*=$0300
+stdout    = $0200
+*         = $0300
+
+len:    .byte 12
+msg:    .asc  "Hello, 6502!"
+
+start:
 loop:
-    lda msg,x     ;copy the message byte after byte to the output buffer
-    sta out,x
-    inx
-    cpx len       ;while (x < len)
-    bne loop
+        lda msg,x           ;copy the message byte after byte to the output buffer
+        sta stdout,x
+        inx
+        cpx len             ;while (x < len)
+        bne loop
+        lda #$0A            ;line break
+        sta stdout+$ff      ;writing to $02ff triggers the output
+spin:
+        jmp spin            ;there is no way to exit the program
 
-    jsr flush
-    jmp halt
 
-flush:
-    lda #$0A      ;newline
-    sta out+$ff   ;writing to $02ff triggers the output
-    rts
+tail:
+        * = $FFFA
+        .dsb (*-tail)
 
-halt:
-    jmp halt
-
-msg: .asc  "Hello, 6502!"
-len: .byte 12
+        * = $FFFA
+        .word $0000         ;nmi vector
+        .word start         ;reset vector
+        .word $0000         ;irq vector

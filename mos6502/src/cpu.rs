@@ -11,6 +11,11 @@ const FL_UNUSED: Flag = 1 << 5;
 const FL_OVERFLOW: Flag = 1 << 6;
 const FL_NEGATIVE: Flag = 1 << 7;
 
+// Interrupt vector locations
+const VEC_NMI: Word = 0xFFFA;
+const VEC_RESET: Word = 0xFFFC;
+const VEC_IRQ: Word = 0xFFFE;
+
 #[derive(Debug, Clone)]
 enum AddrMode {
     Acc,
@@ -132,20 +137,21 @@ impl CPU {
             OP_INC_ZPX => self.inc(mem, AddrMode::ZpX, 6),
             OP_INC_ABS => self.inc(mem, AddrMode::Abs, 6),
             OP_INC_ABX => self.inc(mem, AddrMode::AbsX, 7),
-            OP_INX_IMP => self.inx(/*mem, AddrMode::Imp,*/ 2),
-            OP_INY_IMP => self.iny(/*mem, AddrMode::Imp,*/ 2),
+            OP_INX_IMP => self.inx(2),
+            OP_INY_IMP => self.iny(2),
 
             OP_DEC_ZP0 => self.dec(mem, AddrMode::Zp, 5),
             OP_DEC_ZPX => self.dec(mem, AddrMode::ZpX, 6),
             OP_DEC_ABS => self.dec(mem, AddrMode::Abs, 6),
             OP_DEC_ABX => self.dec(mem, AddrMode::AbsX, 7),
-            OP_DEX_IMP => self.dex(/*mem, AddrMode::Imp,*/ 2),
-            OP_DEY_IMP => self.dey(/*mem, AddrMode::Imp,*/ 2),
+            OP_DEX_IMP => self.dex(2),
+            OP_DEY_IMP => self.dey(2),
 
             OP_JMP_ABS => self.jmp(mem, AddrMode::Abs, 3),
             OP_JMP_IND => self.jmp(mem, AddrMode::Ind, 5),
+
             OP_JSR_ABS => self.jsr(mem, AddrMode::Abs, 6),
-            OP_RTS_IMP => self.rts(mem, /*AddrMode::Imp,*/ 6),
+            OP_RTS_IMP => self.rts(mem, 6),
 
             OP_BCC_REL => self.bcc(mem, AddrMode::Rel, 2),
             OP_BCS_REL => self.bcs(mem, AddrMode::Rel, 2),
@@ -173,24 +179,24 @@ impl CPU {
             OP_CPY_ZP0 => self.cpy(mem, AddrMode::Zp, 3),
             OP_CPY_ABS => self.cpy(mem, AddrMode::Abs, 4),
 
-            OP_CLC_IMP => self.clc(/*mem, AddrMode::Imp,*/ 2),
-            OP_CLI_IMP => self.cli(/*mem, AddrMode::Imp,*/ 2),
-            OP_CLV_IMP => self.clv(/*mem, AddrMode::Imp,*/ 2),
+            OP_CLC_IMP => self.clc(2),
+            OP_CLI_IMP => self.cli(2),
+            OP_CLV_IMP => self.clv(2),
 
-            OP_SEC_IMP => self.sec(/*mem, AddrMode::Imp,*/ 2),
-            OP_SEI_IMP => self.sei(/*mem, AddrMode::Imp,*/ 2),
+            OP_SEC_IMP => self.sec(2),
+            OP_SEI_IMP => self.sei(2),
 
-            OP_TAX_IMP => self.tax(/*mem, AddrMode::Imp,*/ 2),
-            OP_TXA_IMP => self.txa(/*mem, AddrMode::Imp,*/ 2),
-            OP_TAY_IMP => self.tay(/*mem, AddrMode::Imp,*/ 2),
-            OP_TYA_IMP => self.tya(/*mem, AddrMode::Imp,*/ 2),
-            OP_TSX_IMP => self.tsx(/*mem, AddrMode::Imp,*/ 2),
-            OP_TXS_IMP => self.txs(/*mem, AddrMode::Imp,*/ 2),
+            OP_TAX_IMP => self.tax(2),
+            OP_TXA_IMP => self.txa(2),
+            OP_TAY_IMP => self.tay(2),
+            OP_TYA_IMP => self.tya(2),
+            OP_TSX_IMP => self.tsx(2),
+            OP_TXS_IMP => self.txs(2),
 
-            OP_PHA_IMP => self.pha(mem, /*AddrMode::Imp,*/ 3),
-            OP_PHP_IMP => self.php(mem, /*AddrMode::Imp,*/ 3),
-            OP_PLA_IMP => self.pla(mem, /*AddrMode::Imp,*/ 4),
-            OP_PLP_IMP => self.plp(mem, /*AddrMode::Imp,*/ 4),
+            OP_PHA_IMP => self.pha(mem, 3),
+            OP_PHP_IMP => self.php(mem, 3),
+            OP_PLA_IMP => self.pla(mem, 4),
+            OP_PLP_IMP => self.plp(mem, 4),
 
             OP_AND_IMM => self.and(mem, AddrMode::Imm, 2),
             OP_AND_ZP0 => self.and(mem, AddrMode::Zp, 3),
@@ -246,7 +252,9 @@ impl CPU {
             OP_ROR_ABS => self.ror(mem, AddrMode::Abs, 6),
             OP_ROR_ABX => self.ror(mem, AddrMode::AbsX, 7),
 
-            OP_NOP => self.nop(/*mem, AddrMode::Imp,*/ 2),
+            OP_BRK => self.brk(mem, 7),
+            OP_RTI => self.rti(mem, 6),
+            OP_NOP => self.nop(2),
 
             _ => {
                 println!("---- last cpu state ----");
@@ -929,11 +937,37 @@ impl CPU {
         cycles
     }
 
-    pub fn reset(&mut self, reset_vec: Word) {
-        self.pc = reset_vec;
-        self.sp = 0xFF;
-        self.p = 0;
+    fn brk(&mut self, mem: &mut dyn Memory, cycles: u8) -> u8 {
+        self.stack_push(mem, self.pc as Byte);
+        self.stack_push(mem, (self.pc >> 8) as Byte);
+        self.stack_push(mem, self.p);
 
+        self.pc = self.read_word(mem, VEC_IRQ);
+        self.set_flag(FL_BREAK, true);
+        cycles
+    }
+
+    fn rti(&mut self, mem: &mut dyn Memory, cycles: u8) -> u8 {
+        self.p = self.stack_pop(mem);
+
+        let hi = self.stack_pop(mem) as Word;
+        let lo = self.stack_pop(mem) as Word;
+        self.pc = (hi << 8) | lo;
+
+        cycles
+    }
+
+    fn read_word(&self, mem: &dyn Memory, addr: Word) -> Word {
+        let lo = mem.read(addr) as Word;
+        let hi = mem.read(addr + 1) as Word;
+        (hi << 8) | lo
+    }
+
+    pub fn reset(&mut self, mem: &dyn Memory) {
+        self.pc = self.read_word(mem, VEC_RESET);
+        self.sp = 0xFF;
+
+        self.p = 0;
         self.a = 0;
         self.x = 0;
         self.y = 0;

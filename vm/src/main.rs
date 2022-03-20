@@ -14,7 +14,6 @@ use mos6502::mem::{Memory, Ram};
 use mos6502::types::*;
 use stdout::Stdout;
 
-const RESET_VECTOR: Word = 0x0300;
 const CPU_FREQ_MHZ: f32 = 1.0;
 
 struct Opts {
@@ -58,8 +57,7 @@ impl VirtualMachine {
         bus.plug_in((0x0000, 0xFFFF), Rc::clone(&mem)).unwrap();
 
         let clock = Oscillator::with_frequency(CPU_FREQ_MHZ);
-        let mut cpu = CPU::new();
-        cpu.reset(RESET_VECTOR);
+        let cpu = CPU::new();
 
         Self {
             cpu,
@@ -71,15 +69,24 @@ impl VirtualMachine {
 
     fn load_rom_from_file(&mut self, filename: String) -> io::Result<()> {
         let file = File::open(filename)?;
-        let mut addr = RESET_VECTOR;
+        let mut addr: Word = 0x0300;
+
         for byte in file.bytes() {
             self.bus.write(addr, byte.unwrap());
-            addr += 1;
+            addr = {
+                let (new_addr, wrapped) = addr.overflowing_add(1);
+                if wrapped {
+                    break;
+                }
+                new_addr
+            };
         }
+
         Ok(())
     }
 
     fn run_loop(&mut self) {
+        self.cpu.reset(&self.bus);
         let mut tick_count: u64 = 0;
         let mut real_tick;
 

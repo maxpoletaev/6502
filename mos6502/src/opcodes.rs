@@ -250,3 +250,9 @@ pub const OP_ROR_ZP0: Byte = 0x66;
 pub const OP_ROR_ZPX: Byte = 0x76;
 pub const OP_ROR_ABS: Byte = 0x6E;
 pub const OP_ROR_ABX: Byte = 0x7E;
+
+// BRK - Force Interrupt
+pub const OP_BRK: Byte = 0x00;
+
+// RTI - Return from Interrupt
+pub const OP_RTI: Byte = 0x40;
